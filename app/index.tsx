@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 export default function Index() {
   return (
     <View className="flex-1 items-center justify-center gap-4 bg-background px-6">
-      <Text className="font-sans-bold text-2xl text-on-background">Welcome to Voola!</Text>
+      <Text className="text-7xl font-bold text-white">Home</Text>
       <Link
         href="/onboarding"
         className="rounded-lg bg-primary px-6 py-4 font-sans-medium text-on-primary"
