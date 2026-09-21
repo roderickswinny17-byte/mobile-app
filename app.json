@@ -39,7 +39,14 @@
           }
         }
       ],
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.winny.app",
+          "enableGooglePay": false
+        }
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

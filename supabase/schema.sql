@@ -100,3 +100,74 @@ create policy "Users can view their own subscriptions"
   using (auth.uid() = user_id);
 
 revoke insert, update, delete on public.subscriptions from authenticated, anon;
+
+-- Phone number, added for the profile info popover. Nullable because
+-- existing users won't have one yet. No RLS change needed: RLS is
+-- row-level, not column-level, so the existing "Users can view/update
+-- their own profile" policies on public.profiles already cover it.
+alter table public.profiles add column if not exists phone_number text;
+
+-- Song library: a shared catalog (not per-user data), browsable by mood
+-- category and taggable by language. Read-only for authenticated clients --
+-- writes happen only via the Dashboard / a trusted admin process for now,
+-- matching the "clients read, trusted server writes" posture already used
+-- for public.subscriptions above.
+--
+-- Adding a new category later (e.g. "breakup") also requires updating the
+-- check constraint below:
+--   alter table public.songs drop constraint songs_category_check;
+--   alter table public.songs add constraint songs_category_check
+--     check (category in ('happy', 'sad', 'love', 'party', 'breakup'));
+create table if not exists public.songs (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  artist text not null,
+  category text not null check (category in ('happy', 'sad', 'love', 'party')),
+  language text not null check (language in ('english', 'hindi', 'telugu', 'tamil', 'malayalam')),
+  audio_url text not null,
+  cover_url text,
+  duration_seconds integer,
+  created_at timestamptz not null default now()
+);
+
+alter table public.songs enable row level security;
+
+-- Shared catalog, no owner column -- any signed-in user can browse it.
+drop policy if exists "Authenticated users can view songs" on public.songs;
+create policy "Authenticated users can view songs"
+  on public.songs for select
+  to authenticated
+  using (true);
+
+revoke insert, update, delete on public.songs from authenticated, anon;
+
+-- ---------------------------------------------------------------------
+-- Placeholder seed data. These are NOT real licensed catalog songs -- they
+-- reuse the well-known "SoundHelix" freely-licensed instrumental test mp3s
+-- (commonly used exactly for exercising audio pipelines end-to-end), tagged
+-- with fabricated title/artist/category/language metadata so the
+-- category -> song list -> playback flow can be built and tested. Replace
+-- with real, rights-cleared catalog audio + metadata before shipping.
+insert into public.songs (title, artist, category, language, audio_url)
+values
+  ('Happy Sample (English)',    'Placeholder Artist', 'happy', 'english',    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+  ('Happy Sample (Hindi)',      'Placeholder Artist', 'happy', 'hindi',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+  ('Happy Sample (Telugu)',     'Placeholder Artist', 'happy', 'telugu',     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+  ('Happy Sample (Tamil)',      'Placeholder Artist', 'happy', 'tamil',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'),
+  ('Happy Sample (Malayalam)',  'Placeholder Artist', 'happy', 'malayalam',  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+  ('Sad Sample (English)',      'Placeholder Artist', 'sad',   'english',    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+  ('Sad Sample (Hindi)',        'Placeholder Artist', 'sad',   'hindi',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+  ('Sad Sample (Telugu)',       'Placeholder Artist', 'sad',   'telugu',     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'),
+  ('Sad Sample (Tamil)',        'Placeholder Artist', 'sad',   'tamil',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+  ('Sad Sample (Malayalam)',    'Placeholder Artist', 'sad',   'malayalam',  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+  ('Love Sample (English)',     'Placeholder Artist', 'love',  'english',    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+  ('Love Sample (Hindi)',       'Placeholder Artist', 'love',  'hindi',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'),
+  ('Love Sample (Telugu)',      'Placeholder Artist', 'love',  'telugu',     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+  ('Love Sample (Tamil)',       'Placeholder Artist', 'love',  'tamil',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+  ('Love Sample (Malayalam)',   'Placeholder Artist', 'love',  'malayalam',  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+  ('Party Sample (English)',    'Placeholder Artist', 'party', 'english',    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'),
+  ('Party Sample (Hindi)',      'Placeholder Artist', 'party', 'hindi',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+  ('Party Sample (Telugu)',     'Placeholder Artist', 'party', 'telugu',     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+  ('Party Sample (Tamil)',      'Placeholder Artist', 'party', 'tamil',      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+  ('Party Sample (Malayalam)',  'Placeholder Artist', 'party', 'malayalam',  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3')
+on conflict do nothing;

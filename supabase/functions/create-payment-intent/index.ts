@@ -1,13 +1,13 @@
-import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import Stripe from "npm:stripe@17";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
 
 // Create these Prices in the Stripe Dashboard first, then paste their IDs here.
 const PLAN_PRICES: Record<string, { monthly: string; yearly: string }> = {
   "subscription-a": {
-    monthly: "price_XXXXXXXX",
-    yearly: "price_YYYYYYYY",
+    monthly: "price_1UI1lBGY9w7pYyfke2CEp4IA",
+    yearly: "price_1UI1puGY9w7pYyfkoSvzbgNo",
   },
 };
 
