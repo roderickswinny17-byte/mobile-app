@@ -74,3 +74,29 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Subscriptions: written only by the confirm-subscription Edge Function
+-- (service role), after it re-verifies payment with Stripe directly. The
+-- client never asserts "I paid" straight into this table.
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  plan text not null,
+  billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
+  status text not null default 'active' check (status in ('active', 'canceled', 'past_due')),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  card_brand text,
+  card_last4 text,
+  current_period_end timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.subscriptions enable row level security;
+
+drop policy if exists "Users can view their own subscriptions" on public.subscriptions;
+create policy "Users can view their own subscriptions"
+  on public.subscriptions for select
+  using (auth.uid() = user_id);
+
+revoke insert, update, delete on public.subscriptions from authenticated, anon;
