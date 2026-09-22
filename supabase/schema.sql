@@ -128,3 +128,25 @@ create policy "Signed-in users can browse songs"
   using (auth.role() = 'authenticated');
 
 revoke insert, update, delete on public.songs from authenticated, anon;
+
+-- Tracked subscriptions: a user's own record of external recurring charges
+-- (Netflix, Spotify, etc). Unrelated to public.subscriptions above, which is
+-- this app's own paid-plan billing -- different concept, same word.
+create table if not exists public.tracked_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  service_name text not null,
+  monthly_cost numeric(10,2) not null,
+  billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
+  next_renewal_date date,
+  category text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.tracked_subscriptions enable row level security;
+
+drop policy if exists "Users manage their own tracked subscriptions" on public.tracked_subscriptions;
+create policy "Users manage their own tracked subscriptions"
+  on public.tracked_subscriptions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
