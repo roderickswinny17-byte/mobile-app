@@ -1,49 +1,14 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useMemo } from "react";
+import { SONGS, type Song } from "@/lib/songs";
 import type { MoodKey } from "@/lib/moods";
 
-export type Song = {
-  id: string;
-  title: string;
-  artist: string;
-  language: string;
-  mood: string;
-  audio_url: string;
-  cover_url: string | null;
-  duration_seconds: number | null;
-};
+export type { Song };
 
+// Reads from the local placeholder catalog (lib/songs.ts) for now, not the
+// Supabase `songs` table -- see that file for how to switch back once
+// there's real seeded content. Keeps the same { songs, loading, error }
+// shape either way, so callers don't need to change.
 export function useSongs(mood: MoodKey) {
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from("songs")
-        .select("id, title, artist, language, mood, audio_url, cover_url, duration_seconds")
-        .eq("mood", mood)
-        .order("title");
-
-      if (cancelled) return;
-      if (fetchError) {
-        setError(fetchError.message);
-      } else {
-        setSongs(data ?? []);
-      }
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mood]);
-
-  return { songs, loading, error };
+  const songs = useMemo(() => SONGS.filter((song) => song.mood === mood), [mood]);
+  return { songs, loading: false, error: null };
 }
