@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text } from "react-native";
 import { router } from "expo-router";
 import { CardField, useStripe } from "@stripe/stripe-react-native";
-import { FunctionsHttpError } from "@supabase/supabase-js";
+import { FunctionsFetchError, FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 // The real Stripe card-entry UI. Only ever mounted when PaymentForm.tsx has
@@ -17,8 +17,13 @@ type Props = { planId: string; cycle: "monthly" | "yearly" };
 // just "Edge Function returned a non-2xx status code" -- it doesn't parse
 // the function's own response body. The two functions here return
 // { error: "<real reason>" } in that body, so dig it out when possible
-// instead of showing that generic, unhelpful text.
+// instead of showing that generic, unhelpful text. FunctionsFetchError is
+// different in kind -- the request never got a response at all (DNS,
+// timeout, dropped connection), so there's no body to read.
 async function getFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof FunctionsFetchError) {
+    return "Couldn't reach the server -- check your internet connection and try again.";
+  }
   if (error instanceof FunctionsHttpError) {
     try {
       const body = await error.context.json();
@@ -28,6 +33,17 @@ async function getFunctionErrorMessage(error: unknown, fallback: string): Promis
     }
   }
   return error instanceof Error ? error.message : fallback;
+}
+
+// FunctionsFetchError usually means a dropped packet or a cold-start
+// timeout, not a real problem with the request -- retry once before
+// surfacing it as an error.
+async function invokeWithRetry(name: string, body: object) {
+  let result = await supabase.functions.invoke(name, { body });
+  if (result.error instanceof FunctionsFetchError) {
+    result = await supabase.functions.invoke(name, { body });
+  }
+  return result;
 }
 
 const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
@@ -48,8 +64,9 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
 
     // Server-side: creates the Stripe subscription + PaymentIntent using
     // the secret key (never in the app) and returns a client secret.
-    const { data, error: fnError } = await supabase.functions.invoke("create-payment-intent", {
-      body: { planId, billingCycle: cycle },
+    const { data, error: fnError } = await invokeWithRetry("create-payment-intent", {
+      planId,
+      billingCycle: cycle,
     });
 
     if (fnError || !data?.clientSecret) {
@@ -70,8 +87,10 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
 
     // Re-verifies with Stripe server-side and writes the subscriptions row --
     // the app never asserts "payment succeeded" directly into the database.
-    const { error: recordError } = await supabase.functions.invoke("confirm-subscription", {
-      body: { subscriptionId: data.subscriptionId, planId, billingCycle: cycle },
+    const { error: recordError } = await invokeWithRetry("confirm-subscription", {
+      subscriptionId: data.subscriptionId,
+      planId,
+      billingCycle: cycle,
     });
     setLoading(false);
 
