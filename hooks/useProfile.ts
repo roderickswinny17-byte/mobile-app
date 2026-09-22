@@ -6,6 +6,7 @@ export type Profile = {
   first_name: string;
   last_name: string;
   email: string;
+  phone_number: string | null;
 };
 
 export function useProfile() {
@@ -30,7 +31,7 @@ export function useProfile() {
 
     const { data, error: profileError } = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, email")
+      .select("id, first_name, last_name, email, phone_number")
       .eq("id", user.id)
       .single();
 

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StripeProvider } from "@stripe/stripe-react-native";
+import StripeRootProvider from "@/components/StripeRootProvider";
 import {
   useFonts,
   Geist_400Regular,
@@ -36,10 +36,10 @@ export default function RootLayout() {
   }
 
   return (
-    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}>
+    <StripeRootProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Stack screenOptions={{ headerShown: false }} />
       </GestureHandlerRootView>
-    </StripeProvider>
+    </StripeRootProvider>
   );
 }

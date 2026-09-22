@@ -100,3 +100,31 @@ create policy "Users can view their own subscriptions"
   using (auth.uid() = user_id);
 
 revoke insert, update, delete on public.subscriptions from authenticated, anon;
+
+alter table public.profiles add column if not exists phone_number text;
+
+-- Songs: a shared catalog (not per-user data), tagged by mood/language so the
+-- home screen's mood tiles can filter into a list. Populated by
+-- scripts/seed-songs.mjs (service role) -- the client only ever reads it.
+create table if not exists public.songs (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  artist text not null,
+  language text not null,  -- 'en' | 'hi' | 'te' | 'ta' | 'ml'
+  mood text not null,      -- 'happy' | 'sad' | 'love' | 'party' | ... (extensible)
+  audio_url text not null,
+  cover_url text,
+  duration_seconds integer,
+  source text not null default 'jamendo',
+  license_url text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.songs enable row level security;
+
+drop policy if exists "Signed-in users can browse songs" on public.songs;
+create policy "Signed-in users can browse songs"
+  on public.songs for select
+  using (auth.role() = 'authenticated');
+
+revoke insert, update, delete on public.songs from authenticated, anon;

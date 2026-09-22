@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { GestureDetector } from "react-native-gesture-handler";
 import { useSwipeTabNavigation } from "@/hooks/useSwipeTabNavigation";
@@ -12,6 +12,7 @@ const Settings = () => {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -20,6 +21,7 @@ const Settings = () => {
     if (profile) {
       setFirstName(profile.first_name);
       setLastName(profile.last_name);
+      setPhoneNumber(profile.phone_number ?? "");
     }
   }, [profile]);
 
@@ -36,7 +38,11 @@ const Settings = () => {
     setSaving(true);
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ first_name: firstName.trim(), last_name: lastName.trim() })
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone_number: phoneNumber.trim() || null,
+      })
       .eq("id", profile.id);
     setSaving(false);
 
@@ -89,11 +95,20 @@ const Settings = () => {
           onChangeText={setLastName}
           className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
         />
+        <TextInput
+          placeholder="Phone number"
+          placeholderTextColor="#869585"
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
+        />
 
         {saveError ? <Text className="font-sans text-error">{saveError}</Text> : null}
         {saved ? <Text className="font-sans text-primary">Saved.</Text> : null}
 
-        <TouchableOpacity
+        <Pressable
           onPress={handleSave}
           disabled={saving}
           className="items-center rounded-lg bg-primary px-6 py-4"
@@ -103,14 +118,14 @@ const Settings = () => {
           ) : (
             <Text className="font-sans-medium text-on-primary">Save Changes</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
+        <Pressable
           onPress={handleLogout}
           className="items-center rounded-lg border border-error px-6 py-4"
         >
           <Text className="font-sans-medium text-error">Log Out</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </GestureDetector>
   );

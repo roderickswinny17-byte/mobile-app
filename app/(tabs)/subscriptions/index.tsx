@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { GestureDetector } from "react-native-gesture-handler";
 import clsx from "clsx";
@@ -42,7 +42,7 @@ const Subscriptions = () => {
         </View>
 
         <View className="flex-row gap-2">
-          <TouchableOpacity
+          <Pressable
             onPress={() => setCycle("monthly")}
             className={clsx(
               "flex-1 items-center rounded-lg border py-2",
@@ -50,8 +50,8 @@ const Subscriptions = () => {
             )}
           >
             <Text className="font-sans-medium text-on-surface">Monthly</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             onPress={() => setCycle("yearly")}
             className={clsx(
               "flex-1 items-center rounded-lg border py-2",
@@ -59,7 +59,7 @@ const Subscriptions = () => {
             )}
           >
             <Text className="font-sans-medium text-on-surface">Yearly</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {PLANS.map((plan) => (
@@ -80,7 +80,7 @@ const Subscriptions = () => {
                 • {perk}
               </Text>
             ))}
-            <TouchableOpacity
+            <Pressable
               onPress={() =>
                 router.push({
                   pathname: "/subscriptions/payment",
@@ -90,7 +90,7 @@ const Subscriptions = () => {
               className="mt-2 items-center rounded-lg bg-primary px-6 py-3"
             >
               <Text className="font-sans-medium text-on-primary">Upgrade</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         ))}
       </View>
