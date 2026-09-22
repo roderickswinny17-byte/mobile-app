@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { GestureDetector } from "react-native-gesture-handler";
@@ -17,13 +17,17 @@ const Settings = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (profile) {
-      setFirstName(profile.first_name);
-      setLastName(profile.last_name);
-      setPhoneNumber(profile.phone_number ?? "");
-    }
-  }, [profile]);
+  // Seed the editable fields from `profile` once it loads (or reloads with a
+  // different id). Setting state during render like this -- rather than in a
+  // useEffect -- is React's own recommended pattern for "adjust state when a
+  // prop changes": https://react.dev/learn/you-might-not-need-an-effect
+  const [seededProfileId, setSeededProfileId] = useState<string | null>(null);
+  if (profile && profile.id !== seededProfileId) {
+    setSeededProfileId(profile.id);
+    setFirstName(profile.first_name);
+    setLastName(profile.last_name);
+    setPhoneNumber(profile.phone_number ?? "");
+  }
 
   const handleSave = async () => {
     if (!profile) return;
