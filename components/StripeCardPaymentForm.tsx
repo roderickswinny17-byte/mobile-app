@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text } from "react-native";
 import { router } from "expo-router";
 import { CardField, useStripe } from "@stripe/stripe-react-native";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 // The real Stripe card-entry UI. Only ever mounted when PaymentForm.tsx has
@@ -11,6 +12,23 @@ import { supabase } from "@/lib/supabase";
 // alone is safe; instantiating <CardField>'s native view and calling into
 // useStripe()'s bridge methods is what crashes there).
 type Props = { planId: string; cycle: "monthly" | "yearly" };
+
+// supabase-js's default error.message for a failed Edge Function call is
+// just "Edge Function returned a non-2xx status code" -- it doesn't parse
+// the function's own response body. The two functions here return
+// { error: "<real reason>" } in that body, so dig it out when possible
+// instead of showing that generic, unhelpful text.
+async function getFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (typeof body?.error === "string") return body.error;
+    } catch {
+      // response body wasn't JSON -- fall through to the generic message
+    }
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
   const { confirmPayment } = useStripe();
@@ -36,7 +54,7 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
 
     if (fnError || !data?.clientSecret) {
       setLoading(false);
-      setError(fnError?.message ?? "Could not start payment.");
+      setError(await getFunctionErrorMessage(fnError, "Could not start payment."));
       return;
     }
 
@@ -58,7 +76,7 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
     setLoading(false);
 
     if (recordError) {
-      setError(recordError.message);
+      setError(await getFunctionErrorMessage(recordError, "Could not confirm subscription."));
       return;
     }
 
