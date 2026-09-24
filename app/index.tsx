@@ -1,47 +1,30 @@
-import { Link } from "expo-router";
-import { Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { Redirect } from "expo-router";
+import { supabase } from "@/lib/supabase";
 
+// The real entry point: send a signed-in device straight to the app, and
+// everyone else to Sign In. Replaces the old dev-nav scratch screen (manual
+// "Go to Sign In" / "Enter App" links), which is how the app used to end up
+// on /home without a session and hit "Auth session missing!".
 export default function Index() {
-  return (
-    <View className="flex-1 items-center justify-center gap-4 bg-background px-6">
-      <Text className="text-7xl font-bold text-white">Home</Text>
-      <Link
-        href="/onboarding"
-        className="rounded-lg bg-primary px-6 py-4 font-sans-medium text-on-primary"
-      >
-        Go to Onboarding
-      </Link>
-      <Link
-        href="/(auth)/sign-in"
-        className="rounded-lg border border-outline-variant bg-surface-container px-6 py-4 font-sans-medium text-on-surface"
-      >
-        Go to Sign In
-      </Link>
-      <Link
-        href="/(auth)/sign-up"
-        className="rounded-lg border border-outline-variant bg-surface-container px-6 py-4 font-sans-medium text-on-surface"
-      >
-        Go to Sign Up
-      </Link>
-      <Link
-        href="/home"
-        className="rounded-lg bg-primary px-6 py-4 font-sans-medium text-on-primary"
-      >
-        Enter App
-      </Link>
+  const [checking, setChecking] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
 
-      <Link href="/subscriptions/spotify" className="font-sans text-on-surface-variant">
-        Spotify Subscription
-      </Link>
-      <Link
-        href={{
-          pathname: "/subscriptions/[id]",
-          params: { id: "claude" },
-        }}
-        className="font-sans text-on-surface-variant"
-      >
-        Claude Max Subscription
-      </Link>
-    </View>
-  );
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSignedIn(!!session);
+      setChecking(false);
+    });
+  }, []);
+
+  if (checking) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return <Redirect href={signedIn ? "/home" : "/(auth)/sign-in"} />;
 }

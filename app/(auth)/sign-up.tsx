@@ -1,18 +1,27 @@
 import { useState } from "react";
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Link, router } from "expo-router";
+import { ActivityIndicator, Pressable, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Link, router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { useThemeColors } from "@/hooks/useThemeColors";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SignUp = () => {
+  // "Add another profile" from Settings lands here with the existing
+  // profile's phone number pre-filled (editable) so the two accounts link
+  // automatically -- see public.get_linked_profiles() in schema.sql.
+  const { phone: phoneParam } = useLocalSearchParams<{ phone?: string }>();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState(phoneParam ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const colors = useThemeColors();
 
   const handleSignUp = async () => {
     setError(null);
@@ -63,16 +72,26 @@ const SignUp = () => {
       return;
     }
 
+    // handle_new_user() (see schema.sql) seeds first/last name + email only;
+    // phone number is written here as a follow-up so a blank/invalid value
+    // never blocks account creation itself.
+    if (phoneNumber.trim()) {
+      await supabase
+        .from("profiles")
+        .update({ phone_number: phoneNumber.trim() })
+        .eq("id", data.session.user.id);
+    }
+
     router.replace("/home");
   };
 
   return (
     <View className="flex-1 justify-center gap-4 bg-background px-6">
-      <Text className="font-sans-bold text-2xl text-on-background">Create Account</Text>
+      <Text className="font-display text-2xl text-on-background">Create Account</Text>
 
       <TextInput
         placeholder="First name"
-        placeholderTextColor="#869585"
+        placeholderTextColor={colors.onSurfaceVariant}
         autoCapitalize="words"
         value={firstName}
         onChangeText={setFirstName}
@@ -80,7 +99,7 @@ const SignUp = () => {
       />
       <TextInput
         placeholder="Last name"
-        placeholderTextColor="#869585"
+        placeholderTextColor={colors.onSurfaceVariant}
         autoCapitalize="words"
         value={lastName}
         onChangeText={setLastName}
@@ -88,7 +107,7 @@ const SignUp = () => {
       />
       <TextInput
         placeholder="Email"
-        placeholderTextColor="#869585"
+        placeholderTextColor={colors.onSurfaceVariant}
         autoCapitalize="none"
         autoComplete="email"
         keyboardType="email-address"
@@ -96,13 +115,34 @@ const SignUp = () => {
         onChangeText={setEmail}
         className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
       />
+      <Text className="-mt-3 font-sans text-xs text-on-surface-variant">
+        Use the real email address your subscriptions are billed to -- Gmail scanning (Settings) reads
+        receipts from this inbox to find and track them automatically.
+      </Text>
+      <View className="relative">
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor={colors.onSurfaceVariant}
+          secureTextEntry={!showPassword}
+          autoComplete="password-new"
+          value={password}
+          onChangeText={setPassword}
+          className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 pr-12 font-sans text-on-surface"
+        />
+        <Pressable
+          onPress={() => setShowPassword((prev) => !prev)}
+          className="absolute right-0 top-0 h-full w-12 items-center justify-center"
+        >
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={colors.onSurfaceVariant} />
+        </Pressable>
+      </View>
       <TextInput
-        placeholder="Password"
-        placeholderTextColor="#869585"
-        secureTextEntry
-        autoComplete="password-new"
-        value={password}
-        onChangeText={setPassword}
+        placeholder="Phone number (optional -- links your profiles)"
+        placeholderTextColor={colors.onSurfaceVariant}
+        keyboardType="phone-pad"
+        autoComplete="tel"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
         className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
       />
 
@@ -115,9 +155,9 @@ const SignUp = () => {
         className="items-center rounded-lg bg-primary px-6 py-4"
       >
         {loading ? (
-          <ActivityIndicator color="#003914" />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="font-sans-medium text-on-primary">Create Account</Text>
+          <Text className="font-display-medium text-on-primary">Create Account</Text>
         )}
       </TouchableOpacity>
 

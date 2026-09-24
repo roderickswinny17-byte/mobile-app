@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>Subscription Tracker // UI Reference</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  @layer base {
+    html, body { width: 100vw; margin: 0; padding: 0; }
+    body { overscroll-behavior: none; }
+  }
+  ::-webkit-scrollbar { display: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Theme tokens as CSS variables so Tailwind classes below (which resolve
+     to these vars, not literal hex) respond live when .dark toggles on
+     #phone-screen -- no need to sprinkle dark: variants everywhere. */
+  #phone-screen {
+    --color-cream: #F8F2E3;
+    --color-cream-card: #FFFDF6;
+    --color-ink: #1E1B16;
+    --color-ink-soft: #8C8477;
+    --color-navy: #14172A;
+  }
+  #phone-screen.dark {
+    --color-cream: #14172A;
+    --color-cream-card: #1E2238;
+    --color-ink: #F2EFE6;
+    --color-ink-soft: #9CA3C2;
+    --color-navy: #0A0C16;
+  }
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          cream: "var(--color-cream)",
+          "cream-card": "var(--color-cream-card)",
+          ink: "var(--color-ink)",
+          "ink-soft": "var(--color-ink-soft)",
+          navy: "var(--color-navy)",
+          coral: "#D9785C",
+          "coral-dark": "#C4674C",
+          sub1: "#F2879A",
+          sub2: "#E9C24C",
+          sub3: "#DCD3F3",
+          sub4: "#BEDDEC",
+          sub5: "#CBE9D3",
+          sub6: "#F4C9A0",
+        },
+        fontFamily: {
+          display: ['"Baloo 2"', "sans-serif"],
+          body: ['"Plus Jakarta Sans"', "sans-serif"],
+        },
+        borderRadius: {
+          xl: "1.5rem",
+          "2xl": "2rem",
+        },
+      },
+    },
+  };
+</script>
+</head>
+<body class="bg-[#EFEAE0] font-body flex items-center justify-center min-h-screen py-10">
+
+<!-- Phone frame -->
+<div class="relative w-[390px] h-[820px] bg-navy rounded-[3rem] p-3 shadow-2xl">
+  <div id="phone-screen" class="relative w-full h-full bg-cream text-ink rounded-[2.3rem] overflow-hidden flex flex-col transition-colors duration-300">
+
+    <!-- Status bar -->
+    <div class="flex items-center justify-between px-7 pt-4 pb-1 text-[13px] font-semibold text-ink shrink-0">
+      <span>9:41</span>
+      <div class="flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
+        <span class="material-symbols-outlined text-[16px]">wifi</span>
+        <span class="material-symbols-outlined text-[16px]">battery_full</span>
+      </div>
+    </div>
+
+    <!-- ===================== SIGN IN / CREATE ACCOUNT SCREEN ===================== -->
+    <section id="screen-auth" class="flex-1 overflow-y-auto no-scrollbar px-6 pb-10 pt-10 flex flex-col">
+      <div class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-2xl bg-navy text-cream flex items-center justify-center font-display font-bold text-2xl">S</div>
+        <h1 class="font-display font-bold text-2xl text-ink mt-4">SubTrack</h1>
+        <p class="font-body text-sm text-ink-soft mt-1 text-center">Track every subscription, across every profile, in one place.</p>
+      </div>
+
+      <div class="mt-8 flex bg-cream-card border border-ink/10 rounded-full p-1">
+        <button id="auth-tab-signin" onclick="setAuthTab('signin')" class="flex-1 py-2 rounded-full font-display font-bold text-sm transition-colors">Sign In</button>
+        <button id="auth-tab-signup" onclick="setAuthTab('signup')" class="flex-1 py-2 rounded-full font-display font-bold text-sm transition-colors">Create Account</button>
+      </div>
+
+      <div class="mt-6 flex flex-col gap-3">
+        <div id="auth-name-field" class="hidden bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+          <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Name</label>
+          <input id="auth-name" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="Alex" />
+        </div>
+        <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+          <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Email</label>
+          <input id="auth-email" type="email" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="you@example.com" />
+        </div>
+        <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+          <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Password</label>
+          <input id="auth-password" type="password" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="********" />
+        </div>
+        <div id="auth-phone-field" class="hidden bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+          <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Phone Number</label>
+          <input id="auth-phone" type="tel" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="+1 555 123 4567" />
+        </div>
+      </div>
+      <p id="auth-phone-hint" class="hidden font-body text-[11px] text-ink-soft mt-2">Used to link this profile with any other profiles you create -- so you can switch between them without a fresh sign-in.</p>
+
+      <button onclick="submitAuth()" id="auth-submit-btn" class="mt-6 w-full bg-coral hover:bg-coral-dark text-white font-display font-bold text-sm py-3.5 rounded-xl transition-colors">Sign In</button>
+      <p class="font-body text-[11px] text-ink-soft mt-4 text-center">UI reference only -- no account is actually created or verified here yet.</p>
+    </section>
+
+    <!-- ===================== HOME SCREEN ===================== -->
+    <section id="screen-home" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-28 pt-2">
+      <div class="flex items-center justify-between mt-2">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-full bg-navy text-cream flex items-center justify-center font-display font-bold text-lg" id="home-avatar-initial"></div>
+          <span class="font-display font-bold text-xl text-ink" id="home-profile-name"></span>
+        </div>
+        <button onclick="toggleAddModal(true)" class="w-10 h-10 rounded-full bg-navy text-cream flex items-center justify-center active:scale-95 transition-transform" aria-label="Add subscription">
+          <span class="material-symbols-outlined text-[22px]">add</span>
+        </button>
+      </div>
+
+      <!-- Upcoming -->
+      <div class="flex items-center justify-between mt-8">
+        <h2 class="font-display font-bold text-xl text-ink">Upcoming</h2>
+        <button class="px-4 py-1.5 rounded-full border border-ink/15 text-ink-soft font-body font-semibold text-xs">View all</button>
+      </div>
+      <div class="flex gap-3 mt-3 overflow-x-auto no-scrollbar" id="home-upcoming-list"></div>
+
+      <!-- All Subscriptions -->
+      <div class="flex items-center justify-between mt-8">
+        <h2 class="font-display font-bold text-xl text-ink">All Subscriptions</h2>
+        <button class="px-4 py-1.5 rounded-full border border-ink/15 text-ink-soft font-body font-semibold text-xs" onclick="showScreen('subs')">View all</button>
+      </div>
+      <div class="flex flex-col gap-3 mt-3" id="home-sub-list"></div>
+    </section>
+
+    <!-- ===================== SUBSCRIPTIONS SCREEN ===================== -->
+    <section id="screen-subs" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-28 pt-2">
+      <div class="flex items-center justify-between mt-2">
+        <h1 class="font-display font-bold text-2xl text-ink">Subscriptions</h1>
+        <button onclick="toggleAddModal(true)" class="w-10 h-10 rounded-full bg-navy text-cream flex items-center justify-center active:scale-95 transition-transform" aria-label="Add subscription">
+          <span class="material-symbols-outlined text-[22px]">add</span>
+        </button>
+      </div>
+      <div class="mt-4 flex items-center gap-2 bg-cream-card border border-ink/10 rounded-full px-4 py-3">
+        <span class="material-symbols-outlined text-ink-soft text-[18px]">search</span>
+        <input class="bg-transparent outline-none font-body text-sm text-ink placeholder:text-ink-soft flex-1" placeholder="Search subscriptions..." />
+      </div>
+      <div class="flex flex-col gap-3 mt-5" id="subs-sub-list"></div>
+    </section>
+
+    <!-- ===================== INSIGHTS SCREEN ===================== -->
+    <section id="screen-insights" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-28 pt-2">
+      <h1 class="font-display font-bold text-2xl text-ink mt-2">Insights</h1>
+      <p class="font-body text-xs text-ink-soft mt-1">Share of your monthly spend across subscriptions (yearly plans shown at their monthly-equivalent cost).</p>
+      <p class="font-body text-[11px] text-ink-soft/80 mt-1" id="insights-currency-note"></p>
+
+      <div class="mt-5 bg-cream-card border border-ink/10 rounded-xl p-6 flex flex-col items-center">
+        <div class="relative w-44 h-44">
+          <div class="absolute inset-0 rounded-full" id="donut-ring"></div>
+          <div class="absolute inset-[18%] bg-cream-card rounded-full flex flex-col items-center justify-center">
+            <p class="font-body text-[10px] text-ink-soft uppercase tracking-wide">Total / mo</p>
+            <p class="font-display font-bold text-xl text-ink" id="donut-total"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 flex flex-col gap-2" id="insights-legend"></div>
+    </section>
+
+    <!-- ===================== PROFILE SCREEN ===================== -->
+    <section id="screen-profile" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-28 pt-2">
+      <div class="flex items-center justify-between mt-2">
+        <h1 class="font-display font-bold text-2xl text-ink">Profile</h1>
+        <button onclick="toggleSettingsSheet(true)" class="w-10 h-10 rounded-full bg-navy text-cream flex items-center justify-center active:scale-95 transition-transform" aria-label="Settings">
+          <span class="material-symbols-outlined text-[20px]">settings</span>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between mt-6">
+        <p class="font-display font-bold text-sm text-ink">Profiles</p>
+        <button onclick="toggleProfileModal(true)" class="flex items-center gap-1 px-3 py-1.5 rounded-full border border-ink/15 text-ink-soft font-body font-semibold text-xs">
+          <span class="material-symbols-outlined text-[14px]">add</span> Add
+        </button>
+      </div>
+      <p class="font-body text-[11px] text-ink-soft mt-1 mb-2">Each has its own email, password, and subscriptions -- linked by phone number so switching is instant. Tap one to switch.</p>
+      <div class="flex flex-col gap-2" id="profile-list"></div>
+
+      <div class="mt-4 bg-cream-card border border-ink/10 rounded-xl p-4">
+        <p class="font-display font-bold text-sm text-ink mb-3">Account</p>
+        <div class="flex items-center justify-between py-1.5">
+          <span class="font-body text-xs text-ink-soft">Account ID</span>
+          <span class="font-body text-xs text-ink">user_3BU5iWn...</span>
+        </div>
+        <div class="flex items-center justify-between py-1.5">
+          <span class="font-body text-xs text-ink-soft">Joined</span>
+          <span class="font-body text-xs text-ink">23.09.2026</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SUBSCRIPTION DETAIL SCREEN (already-tracked items -- unchanged from before) ===================== -->
+    <section id="screen-detail" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-10 pt-2">
+      <div class="flex items-center gap-3 mt-2">
+        <button onclick="hideDetail()" class="w-9 h-9 rounded-full bg-cream-card border border-ink/10 flex items-center justify-center" aria-label="Back">
+          <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <h1 class="font-display font-bold text-lg text-ink">Subscription Details</h1>
+      </div>
+
+      <div class="flex flex-col items-center mt-6">
+        <div class="w-20 h-20 rounded-full bg-white border border-ink/10 flex items-center justify-center p-4" id="detail-logo"></div>
+        <p class="font-display font-bold text-2xl text-ink mt-3" id="detail-name"></p>
+        <p class="font-body text-base text-ink-soft mt-1" id="detail-price"></p>
+        <p class="font-body text-sm text-ink-soft/70" id="detail-plan"></p>
+      </div>
+
+      <h3 class="font-display font-bold text-lg text-ink mt-8 mb-2">Information</h3>
+      <div class="bg-cream-card border border-ink/10 rounded-xl divide-y divide-ink/10" id="detail-info"></div>
+
+      <button class="mt-6 w-full bg-navy hover:bg-navy/90 text-cream font-display font-bold text-sm py-3.5 rounded-xl transition-colors">
+        Cancel Subscription
+      </button>
+      <div class="mt-2 grid grid-cols-2 gap-2">
+        <button class="bg-cream-card border border-ink/10 text-ink font-display font-bold text-sm py-3 rounded-xl">Pause Subscription</button>
+        <button class="bg-cream-card border border-ink/10 text-ink font-display font-bold text-sm py-3 rounded-xl">Change Plan</button>
+      </div>
+    </section>
+
+    <!-- ===================== APP INFO SCREEN (new -- shown after picking a search result, BEFORE it's added) ===================== -->
+    <section id="screen-app-info" class="hidden flex-1 overflow-y-auto no-scrollbar px-5 pb-10 pt-2">
+      <div class="flex items-center gap-3 mt-2">
+        <button onclick="hideAppInfo()" class="w-9 h-9 rounded-full bg-cream-card border border-ink/10 flex items-center justify-center" aria-label="Back">
+          <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <h1 class="font-display font-bold text-lg text-ink">App Info</h1>
+      </div>
+
+      <div class="flex flex-col items-center mt-6">
+        <div class="w-20 h-20 rounded-full bg-white border border-ink/10 flex items-center justify-center p-4" id="appinfo-logo"></div>
+        <p class="font-display font-bold text-2xl text-ink mt-3" id="appinfo-name"></p>
+        <p class="font-body text-sm text-ink-soft" id="appinfo-category"></p>
+      </div>
+
+      <div class="mt-5 bg-sub5/50 border border-ink/10 rounded-xl px-4 py-3 flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px] text-ink">redeem</span>
+        <p class="font-body text-xs font-semibold text-ink" id="appinfo-trial"></p>
+      </div>
+
+      <div class="mt-5 flex items-center justify-between">
+        <h3 class="font-display font-bold text-lg text-ink">Available Plans</h3>
+        <select id="appinfo-currency" onchange="onAppInfoCurrencyChange()" class="bg-cream-card border border-ink/10 rounded-lg px-2 py-1 font-body text-xs text-ink"></select>
+      </div>
+      <div class="flex flex-col gap-2 mt-2" id="appinfo-plans"></div>
+      <p class="font-body text-[11px] text-ink-soft mt-3">Sample plan data for this reference -- not live pricing pulled from the provider.</p>
+
+      <h3 class="font-display font-bold text-lg text-ink mt-6 mb-2">Your Price</h3>
+      <p class="font-body text-xs text-ink-soft mb-2">Paying a different amount than any plan above? Enter exactly what you're billed.</p>
+      <div class="flex items-center gap-2 bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+        <input id="appinfo-custom-price" type="number" step="0.01" min="0" class="flex-1 bg-transparent outline-none font-display font-bold text-lg text-ink" />
+        <span class="font-body text-xs text-ink-soft">/mo</span>
+      </div>
+
+      <button onclick="confirmAddFromAppInfo()" class="mt-5 w-full bg-coral hover:bg-coral-dark text-white font-display font-bold text-sm py-3.5 rounded-xl transition-colors">
+        Add Subscription
+      </button>
+    </section>
+
+    <!-- Settings bottom sheet (opened from the gear on Profile) -->
+    <div id="settings-sheet" class="hidden absolute inset-0 z-20">
+      <div class="absolute inset-0 bg-navy/40" onclick="toggleSettingsSheet(false)"></div>
+      <div class="absolute bottom-0 inset-x-0 bg-cream rounded-t-[2rem] p-5 pb-8 shadow-2xl">
+        <div class="w-10 h-1 bg-ink/15 rounded-full mx-auto mb-4"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-bold text-xl text-ink">Settings</h2>
+          <button onclick="toggleSettingsSheet(false)" class="w-8 h-8 rounded-full bg-cream-card border border-ink/10 flex items-center justify-center" aria-label="Close">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+
+        <div class="mt-4 flex items-center justify-between bg-cream-card border border-ink/10 rounded-xl px-4 py-3.5">
+          <span class="font-body font-semibold text-sm text-ink">Notifications</span>
+          <button class="toggle w-11 h-6 rounded-full bg-coral relative transition-colors" data-on="true" onclick="toggleSwitch(this)">
+            <span class="toggle-dot absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all" style="left: calc(100% - 22px)"></span>
+          </button>
+        </div>
+        <div class="mt-2 flex items-center justify-between bg-cream-card border border-ink/10 rounded-xl px-4 py-3.5">
+          <span class="font-body font-semibold text-sm text-ink">Dark Mode</span>
+          <button id="dark-mode-toggle" class="toggle w-11 h-6 rounded-full bg-ink/15 relative transition-colors" data-on="false" onclick="toggleDarkMode(this)">
+            <span class="toggle-dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all"></span>
+          </button>
+        </div>
+        <div class="mt-2 flex items-center justify-between bg-cream-card border border-ink/10 rounded-xl px-4 py-3.5">
+          <span class="font-body font-semibold text-sm text-ink">Currency</span>
+          <select id="home-currency-select" onchange="setHomeCurrency(this.value)" class="bg-transparent outline-none font-body font-semibold text-sm text-ink text-right"></select>
+        </div>
+        <p class="font-body text-[11px] text-ink-soft mt-1.5 px-1">Used to total up spending in Insights -- each subscription still shows in the currency it's actually billed in.</p>
+
+        <button onclick="signOut()" class="mt-3 w-full bg-coral hover:bg-coral-dark text-white font-display font-bold text-sm py-3.5 rounded-xl transition-colors">
+          Sign Out
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Profile modal -->
+    <div id="add-profile-modal" class="hidden absolute inset-0 z-20">
+      <div class="absolute inset-0 bg-navy/40" onclick="toggleProfileModal(false)"></div>
+      <div class="absolute bottom-0 inset-x-0 bg-cream rounded-t-[2rem] p-5 pb-8 shadow-2xl">
+        <div class="w-10 h-1 bg-ink/15 rounded-full mx-auto mb-4"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-bold text-xl text-ink">Add Profile</h2>
+          <button onclick="toggleProfileModal(false)" class="w-8 h-8 rounded-full bg-cream-card border border-ink/10 flex items-center justify-center" aria-label="Close">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+        <p class="font-body text-xs text-ink-soft mt-1">Its own email and password, its own subscriptions -- linked to this one by phone number so you can switch instantly.</p>
+
+        <div class="mt-4 flex flex-col gap-3">
+          <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+            <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Name</label>
+            <input id="new-profile-name" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="Jordan" />
+          </div>
+          <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+            <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Email</label>
+            <input id="new-profile-email" type="email" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="jordan@example.com" />
+          </div>
+          <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+            <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Password</label>
+            <input id="new-profile-password" type="password" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="********" />
+          </div>
+          <div class="bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+            <label class="font-body text-[10px] uppercase tracking-wide text-ink-soft">Phone Number</label>
+            <input id="new-profile-phone" type="tel" class="w-full bg-transparent outline-none font-body text-sm text-ink mt-0.5" placeholder="+1 555 123 4567" />
+          </div>
+        </div>
+
+        <button onclick="createProfile()" class="mt-5 w-full bg-coral hover:bg-coral-dark text-white font-display font-bold text-sm py-3.5 rounded-xl transition-colors">
+          Create Profile
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Subscription modal (shared by Home's and Subscriptions' "+" buttons) -->
+    <div id="add-modal" class="hidden absolute inset-0 z-20">
+      <div class="absolute inset-0 bg-navy/40" onclick="toggleAddModal(false)"></div>
+      <div class="absolute bottom-0 inset-x-0 bg-cream rounded-t-[2rem] p-5 pb-8 shadow-2xl max-h-[85%] flex flex-col">
+        <div class="w-10 h-1 bg-ink/15 rounded-full mx-auto mb-4 shrink-0"></div>
+        <div class="flex items-center justify-between shrink-0">
+          <h2 class="font-display font-bold text-xl text-ink">Add Subscription</h2>
+          <button onclick="toggleAddModal(false)" class="w-8 h-8 rounded-full bg-cream-card border border-ink/10 flex items-center justify-center" aria-label="Close">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+        <div class="mt-4 flex items-center gap-2 bg-cream-card border border-ink/10 rounded-full px-4 py-3 shrink-0">
+          <span class="material-symbols-outlined text-ink-soft text-[18px]">search</span>
+          <input id="add-search-input" oninput="renderAppResults()" class="bg-transparent outline-none font-body text-sm text-ink placeholder:text-ink-soft flex-1" placeholder="Type any app name -- Netflix, Hulu, Zoom..." />
+        </div>
+        <p class="font-body text-[11px] text-ink-soft mt-2 shrink-0">Not limited to a fixed list -- type any subscription and add it, even if it's not suggested below.</p>
+        <div class="mt-3 flex flex-col gap-2 overflow-y-auto no-scrollbar" id="add-results"></div>
+      </div>
+    </div>
+
+    <!-- Bottom nav -->
+    <nav id="bottom-nav" class="hidden absolute bottom-4 inset-x-4 bg-navy rounded-full flex items-center justify-around py-3 shadow-lg z-10">
+      <button class="nav-btn flex items-center justify-center w-11 h-11 rounded-full transition-colors" data-screen="home" aria-label="Home">
+        <span class="material-symbols-outlined text-[20px]">home</span>
+      </button>
+      <button class="nav-btn flex items-center justify-center w-11 h-11 rounded-full transition-colors" data-screen="subs" aria-label="Subscriptions">
+        <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+      </button>
+      <button class="nav-btn flex items-center justify-center w-11 h-11 rounded-full transition-colors" data-screen="insights" aria-label="Insights">
+        <span class="material-symbols-outlined text-[20px]">show_chart</span>
+      </button>
+      <button class="nav-btn flex items-center justify-center w-11 h-11 rounded-full transition-colors" data-screen="profile" aria-label="Profile">
+        <span class="material-symbols-outlined text-[20px]">person</span>
+      </button>
+    </nav>
+
+  </div>
+</div>
+
+<script>
+  // Real brand marks via Simple Icons (cdn.simpleicons.org) -- an open,
+  // MIT-licensed icon set built specifically for this use, so these are the
+  // actual official logos, not approximations. Verified each slug resolves
+  // before using it. Adobe/Canva/Amazon aren't in that library at all (no
+  // slug exists, checked the full list) -- those three fall back to a
+  // generic shape tinted with the brand's real color instead.
+  const LOGOS = {
+    netflix:     { cdn: "netflix" },
+    github:      { cdn: "github" },
+    claude:      { cdn: "anthropic" },
+    spotify:     { cdn: "spotify" },
+    notion:      { cdn: "notion" },
+    youtube:     { cdn: "youtube" },
+    dropbox:     { cdn: "dropbox" },
+    figma:       { cdn: "figma" },
+    applemusic:  { cdn: "applemusic" },
+    icloud:      { cdn: "icloud" },
+    adobe:  { color: "#FA0F00", path: '<path d="M12 4l8 16h-4l-4-9-4 9H4z"/>' },
+    canva:  { color: "#7D2AE7", path: '<path d="M17 8a7 7 0 1 0 0 8"/>' },
+    amazon: { color: "#FF9900", path: '<rect x="5" y="7" width="14" height="12" rx="1.5"/><path d="M5 7l7-3 7 3"/><path d="M7 20c3 2 7 2 10 0"/>' },
+  };
+
+  function brandIcon(key) {
+    const logo = LOGOS[key] ?? LOGOS.notion;
+    if (logo.cdn) {
+      return `<img src="https://cdn.simpleicons.org/${logo.cdn}" class="w-6 h-6" alt="${key} logo" />`;
+    }
+    return `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="${logo.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${logo.path}</svg>`;
+  }
+
+  // For apps NOT in our curated list (typed freely, "any app around the
+  // world"): try DuckDuckGo's public favicon-by-domain service, which
+  // covers pretty much any company with a website. (Clearbit's logo API --
+  // used here previously -- is no longer reachable at all; it's been
+  // retired, not just blocked in a sandbox, which is why logos weren't
+  // loading for real apps.) Verified DuckDuckGo's endpoint directly:
+  // 200 OK for a real domain, 404 for a made-up one, so the fallback below
+  // reliably kicks in when the guessed domain is wrong or doesn't exist.
+  function guessDomain(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
+  }
+  function freeformIcon(name) {
+    const initial = (name.trim().charAt(0) || "?").toUpperCase();
+    const fallback = `this.replaceWith(Object.assign(document.createElement('span'), ` +
+      `{className:'w-6 h-6 rounded-full bg-navy text-cream flex items-center justify-center font-display font-bold text-xs', textContent:'${initial}'}))`;
+    return `<img src="https://icons.duckduckgo.com/ip3/${guessDomain(name)}.ico" class="w-6 h-6 rounded" alt="${name} logo" onerror="${fallback}" />`;
+  }
+  function appIcon(app) {
+    return app.icon ? brandIcon(app.icon) : freeformIcon(app.name);
+  }
+
+  // Sample plan tiers derived from an app's base price -- illustrative only
+  // (see the disclaimer on the App Info screen). No free API exists that
+  // returns real, current pricing/trial terms for arbitrary companies, so
+  // this is a deliberate, clearly-labeled placeholder rather than
+  // pretending to fetch real data that doesn't exist anywhere to fetch.
+  function derivePlans(basePrice) {
+    return [
+      { name: "Basic",    price: Math.round(basePrice * 0.6 * 100) / 100 },
+      { name: "Standard", price: Math.round(basePrice * 1.0 * 100) / 100 },
+      { name: "Premium",  price: Math.round(basePrice * 1.4 * 100) / 100 },
+    ];
+  }
+
+  // Deterministic-but-varied placeholder price for a freely-typed app name
+  // (same name always gives the same price, but different names differ --
+  // fixes the earlier bug where every non-curated app showed identical
+  // $9.99 plans). Still sample data, same as derivePlans() above.
+  function hashPrice(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return Math.round((3.99 + (hash % 2200) / 100) * 100) / 100;
+  }
+
+  // Catalog the "+" search matches against first -- typing anything NOT
+  // found here still works (see renderAppResults), this is just what gets
+  // suggested with a known logo/category pre-filled.
+  // price/currency here is the USD reference value plan tiers are derived
+  // from (see derivePlans) -- what the user actually stores per-subscription
+  // is chosen/converted on the App Info screen, see renderAppInfoPlans.
+  const KNOWN_APPS = [
+    { name: "Netflix",              category: "Entertainment",   icon: "netflix",    price: 15.99,  cycle: "Monthly", hex: "#F2879A", trialDays: 0,  currency: "USD" },
+    { name: "Spotify",              category: "Music",           icon: "spotify",    price: 11.99,  cycle: "Monthly", hex: "#CBE9D3", trialDays: 30, currency: "USD" },
+    { name: "Adobe Creative Cloud", category: "Design",          icon: "adobe",      price: 77.49,  cycle: "Monthly", hex: "#E9C24C", trialDays: 7,  currency: "USD" },
+    { name: "GitHub Pro",           category: "Developer Tools", icon: "github",     price: 9.99,   cycle: "Monthly", hex: "#DCD3F3", trialDays: 0,  currency: "USD" },
+    { name: "Claude Pro",           category: "AI Tools",        icon: "claude",     price: 20.00,  cycle: "Monthly", hex: "#BEDDEC", trialDays: 0,  currency: "USD" },
+    { name: "Canva Pro",            category: "Design",          icon: "canva",      price: 119.99, cycle: "Yearly",  hex: "#CBE9D3", trialDays: 30, currency: "USD" },
+    { name: "Amazon Prime",         category: "Shopping",        icon: "amazon",     price: 14.99,  cycle: "Monthly", hex: "#F4C9A0", trialDays: 30, currency: "USD" },
+    { name: "YouTube Premium",      category: "Entertainment",   icon: "youtube",    price: 13.99,  cycle: "Monthly", hex: "#F2879A", trialDays: 30, currency: "USD" },
+    { name: "Dropbox",              category: "Cloud Storage",   icon: "dropbox",    price: 11.99,  cycle: "Monthly", hex: "#BEDDEC", trialDays: 30, currency: "USD" },
+    { name: "Figma",                category: "Design",          icon: "figma",      price: 15.00,  cycle: "Monthly", hex: "#E9C24C", trialDays: 0,  currency: "USD" },
+    { name: "Apple Music",          category: "Music",           icon: "applemusic", price: 10.99,  cycle: "Monthly", hex: "#CBE9D3", trialDays: 30, currency: "USD" },
+    { name: "iCloud+",              category: "Cloud Storage",   icon: "icloud",     price: 2.99,   cycle: "Monthly", hex: "#DCD3F3", trialDays: 0,  currency: "USD" },
+    { name: "Notion",               category: "Productivity",    icon: "notion",     price: 12.00,  cycle: "Monthly", hex: "#F4C9A0", trialDays: 0,  currency: "USD" },
+  ];
+
+  function makeFreeformApp(query) {
+    const name = query.trim().replace(/\s+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return { name, category: "Other", icon: null, price: hashPrice(name), cycle: "Monthly", hex: "#DCD3F3", trialDays: 7, currency: "USD", freeform: true };
+  }
+
+  // Multiple profiles (e.g. separate emails), each with its own independent
+  // subscriptions list -- the same service can appear under more than one
+  // profile since each profile's array is separate. SUBSCRIPTIONS always
+  // points at the *active* profile's array; since arrays are references,
+  // switchProfile() just repoints this variable and every existing
+  // SUBSCRIPTIONS.push()/.some() call below keeps working unchanged.
+  let PROFILES = [
+    {
+      id: "p1",
+      name: "Alex",
+      email: "alex@example.com",
+      phone: "+1 555 010 2020",
+      homeCurrency: "USD",
+      subscriptions: [
+        { ...KNOWN_APPS[0] },
+        { ...KNOWN_APPS[2] },
+        { ...KNOWN_APPS[3] },
+        { ...KNOWN_APPS[4] },
+        { ...KNOWN_APPS[5] },
+        { ...KNOWN_APPS[6] },
+      ],
+    },
+  ];
+  let activeProfileId = "p1";
+  let SUBSCRIPTIONS = PROFILES[0].subscriptions;
+
+  function activeProfile() {
+    return PROFILES.find((p) => p.id === activeProfileId);
+  }
+
+  function switchProfile(id) {
+    const profile = PROFILES.find((p) => p.id === id);
+    if (!profile) return;
+    activeProfileId = id;
+    SUBSCRIPTIONS = profile.subscriptions;
+    renderAll();
+    renderProfileList();
+  }
+
+  // Multi-currency: a fixed list covers "any other currency" well enough for
+  // a reference build. Rates are fetched once from a free, no-key FX API
+  // (verified reachable) with a static fallback table if that fails, so
+  // conversion still works approximately offline instead of breaking.
+  const CURRENCIES = [
+    { code: "USD", label: "US Dollar" }, { code: "EUR", label: "Euro" }, { code: "GBP", label: "British Pound" },
+    { code: "INR", label: "Indian Rupee" }, { code: "JPY", label: "Japanese Yen" }, { code: "AUD", label: "Australian Dollar" },
+    { code: "CAD", label: "Canadian Dollar" }, { code: "CHF", label: "Swiss Franc" }, { code: "CNY", label: "Chinese Yuan" },
+    { code: "SGD", label: "Singapore Dollar" }, { code: "AED", label: "UAE Dirham" }, { code: "ZAR", label: "South African Rand" },
+    { code: "BRL", label: "Brazilian Real" },
+  ];
+  function currencyOptionsHtml(selected) {
+    return CURRENCIES.map((c) => `<option value="${c.code}" ${c.code === selected ? "selected" : ""}>${c.code} — ${c.label}</option>`).join("");
+  }
+
+  let FX_RATES = { USD: 1 }; // base USD; repopulated by fetchRates()
+  async function fetchRates() {
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      if (data && data.rates) FX_RATES = data.rates;
+    } catch (e) {
+      FX_RATES = { USD: 1, EUR: 0.92, GBP: 0.79, INR: 83.3, JPY: 149, AUD: 1.52, CAD: 1.36, CHF: 0.88, CNY: 7.1, SGD: 1.34, AED: 3.67, ZAR: 18.4, BRL: 5.4 };
+    }
+    renderAll();
+  }
+  function convert(amount, from, to) {
+    if (from === to) return amount;
+    const fromRate = FX_RATES[from] ?? 1;
+    const toRate = FX_RATES[to] ?? 1;
+    return (amount / fromRate) * toRate;
+  }
+  function money(amount, currency) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+    } catch (e) {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  }
+  const monthlyCost = (sub) => (sub.cycle === "Yearly" ? sub.price / 12 : sub.price);
+
+  function subscriptionRow(sub, index) {
+    return `
+      <div class="flex items-center justify-between rounded-xl px-4 py-4 cursor-pointer active:scale-[0.98] transition-transform" style="background:${sub.hex}" onclick="showDetail(${index})">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-11 h-11 rounded-xl bg-white border border-ink/10 flex items-center justify-center shrink-0 p-2">${appIcon(sub)}</div>
+          <div class="min-w-0">
+            <p class="font-display font-bold text-sm text-ink truncate">${sub.name}</p>
+            <p class="font-body text-xs text-ink/60 truncate">${sub.category}</p>
+          </div>
+        </div>
+        <div class="text-right shrink-0 ml-3">
+          <p class="font-display font-bold text-sm text-ink">${money(sub.price, sub.currency)}</p>
+          <p class="font-body text-xs text-ink/60">${sub.cycle}</p>
+        </div>
+      </div>`;
+  }
+
+  function upcomingCard(sub, index) {
+    return `
+      <div class="shrink-0 w-32 bg-cream-card rounded-xl p-3 border border-ink/10 cursor-pointer active:scale-[0.98] transition-transform" onclick="showDetail(${index})">
+        <div class="w-9 h-9 rounded-full bg-white border border-ink/10 flex items-center justify-center p-1.5">${appIcon(sub)}</div>
+        <p class="font-display font-bold text-base text-ink mt-2">${money(sub.price, sub.currency)}</p>
+        <p class="font-body text-[11px] text-ink-soft">renews soon</p>
+        <p class="font-body font-semibold text-xs text-ink mt-1 truncate">${sub.name}</p>
+      </div>`;
+  }
+
+  function renderAll() {
+    document.getElementById("home-sub-list").innerHTML = SUBSCRIPTIONS.map(subscriptionRow).join("");
+    document.getElementById("subs-sub-list").innerHTML = SUBSCRIPTIONS.map(subscriptionRow).join("");
+    document.getElementById("home-upcoming-list").innerHTML = SUBSCRIPTIONS.slice(0, 3).map(upcomingCard).join("");
+    const profile = activeProfile();
+    document.getElementById("home-profile-name").textContent = profile.name;
+    document.getElementById("home-avatar-initial").textContent = (profile.name.charAt(0) || "?").toUpperCase();
+    renderInsights();
+  }
+
+  // ---- Profile switcher (Profile tab) ----
+  function renderProfileList() {
+    document.getElementById("profile-list").innerHTML = PROFILES.map((p) => {
+      const active = p.id === activeProfileId;
+      return `
+        <button onclick="switchProfile('${p.id}')" class="flex items-center gap-3 rounded-xl p-4 border text-left transition-colors ${active ? "bg-navy border-navy" : "bg-cream-card border-ink/10"}">
+          <div class="w-11 h-11 rounded-full flex items-center justify-center font-display font-bold text-lg shrink-0 ${active ? "bg-cream text-navy" : "bg-navy text-cream"}">${(p.name.charAt(0) || "?").toUpperCase()}</div>
+          <div class="min-w-0">
+            <p class="font-display font-bold text-base truncate ${active ? "text-cream" : "text-ink"}">${p.name}</p>
+            <p class="font-body text-xs truncate ${active ? "text-white/70" : "text-ink-soft"}">${p.email} · ${p.subscriptions.length} subscription${p.subscriptions.length === 1 ? "" : "s"}</p>
+            ${p.phone ? `<p class="font-body text-[10px] truncate ${active ? "text-white/50" : "text-ink-soft/70"}">Linked via ${p.phone}</p>` : ""}
+          </div>
+        </button>`;
+    }).join("");
+  }
+
+  function toggleProfileModal(open) {
+    document.getElementById("add-profile-modal").classList.toggle("hidden", !open);
+    if (open) {
+      document.getElementById("new-profile-name").value = "";
+      document.getElementById("new-profile-email").value = "";
+      document.getElementById("new-profile-password").value = "";
+      // Pre-filled (not locked) from the active profile -- reinforces that
+      // this new profile is meant to link to the same person's other ones.
+      document.getElementById("new-profile-phone").value = activeProfile().phone || "";
+    }
+  }
+
+  function createProfile() {
+    const name = document.getElementById("new-profile-name").value.trim();
+    const email = document.getElementById("new-profile-email").value.trim();
+    const phone = document.getElementById("new-profile-phone").value.trim();
+    if (!name || !email) return;
+    const profile = { id: `p${Date.now()}`, name, email, phone, homeCurrency: activeProfile().homeCurrency || "USD", subscriptions: [] };
+    PROFILES.push(profile);
+    toggleProfileModal(false);
+    switchProfile(profile.id);
+  }
+
+  // ---- Insights: donut chart of cost share, cost only (no usage) ----
+  // Each subscription can be billed in its own currency, so totals/shares
+  // only mean anything once everything's converted into one currency first
+  // -- the active profile's home currency.
+  function renderInsights() {
+    const home = activeProfile().homeCurrency;
+    const withCost = SUBSCRIPTIONS.map((s) => ({ ...s, monthly: convert(monthlyCost(s), s.currency, home) }));
+    const total = withCost.reduce((sum, s) => sum + s.monthly, 0);
+
+    let angle = 0;
+    const stops = withCost.map((s) => {
+      const start = angle;
+      angle += total > 0 ? (s.monthly / total) * 360 : 0;
+      return `${s.hex} ${start}deg ${angle}deg`;
+    });
+    document.getElementById("donut-ring").style.background = stops.length
+      ? `conic-gradient(${stops.join(", ")})`
+      : "conic-gradient(var(--color-cream-card) 0deg 360deg)";
+    document.getElementById("donut-total").textContent = money(total, home);
+    document.getElementById("insights-currency-note").textContent = `All amounts converted to ${home} at current exchange rates.`;
+
+    document.getElementById("insights-legend").innerHTML = withCost
+      .slice()
+      .sort((a, b) => b.monthly - a.monthly)
+      .map((sub) => `
+        <div class="flex items-center justify-between bg-cream-card border border-ink/10 rounded-xl px-4 py-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-3 h-3 rounded-full shrink-0" style="background:${sub.hex}"></span>
+            <div class="w-8 h-8 rounded-lg bg-white border border-ink/10 flex items-center justify-center shrink-0 p-1.5">${appIcon(sub)}</div>
+            <span class="font-body font-semibold text-sm text-ink truncate">${sub.name}</span>
+          </div>
+          <div class="text-right shrink-0 ml-2">
+            <p class="font-display font-bold text-xs text-coral-dark">${money(sub.monthly, home)}/mo</p>
+            <p class="font-body text-[11px] text-ink-soft">${total > 0 ? Math.round((sub.monthly / total) * 100) : 0}%</p>
+          </div>
+        </div>`)
+      .join("");
+  }
+
+  // ---- Subscription detail screen (already-tracked items) ----
+  let lastScreen = "home";
+  function showDetail(index) {
+    const sub = SUBSCRIPTIONS[index];
+    document.getElementById("detail-logo").innerHTML = appIcon(sub);
+    document.getElementById("detail-name").textContent = sub.name;
+    document.getElementById("detail-price").textContent = `${money(sub.price, sub.currency)} / ${sub.cycle === "Yearly" ? "year" : "month"}`;
+    document.getElementById("detail-plan").textContent = sub.category;
+
+    const rows = [
+      ["Next Payment", "Mar 18, 2027"],
+      ["Billing Cycle", sub.cycle],
+      ["Payment Method", "Visa (•••• 4589)"],
+    ];
+    document.getElementById("detail-info").innerHTML =
+      rows.map(([label, value]) => `
+        <div class="flex items-center justify-between px-4 py-3">
+          <span class="font-body text-xs text-ink-soft">${label}</span>
+          <span class="font-body font-semibold text-xs text-ink">${value}</span>
+        </div>`).join("") +
+      `<div class="flex items-center justify-between px-4 py-3">
+         <span class="font-body text-xs text-ink-soft">Status</span>
+         <span class="font-body font-bold text-[10px] tracking-wide uppercase text-ink bg-sub5 px-2 py-1 rounded-full">Active</span>
+       </div>`;
+
+    hideAllScreens();
+    document.getElementById("screen-detail").classList.remove("hidden");
+    document.getElementById("bottom-nav").classList.add("hidden");
+  }
+  function hideDetail() {
+    document.getElementById("screen-detail").classList.add("hidden");
+    document.getElementById("bottom-nav").classList.remove("hidden");
+    document.getElementById(`screen-${lastScreen}`).classList.remove("hidden");
+  }
+
+  // ---- App Info screen (new app, BEFORE it's added -- plans + trial) ----
+  let pendingApp = null;
+  let appInfoCurrency = "USD";
+
+  function openAppInfo(app) {
+    pendingApp = app;
+    toggleAddModal(false);
+    appInfoCurrency = activeProfile().homeCurrency || "USD";
+
+    document.getElementById("appinfo-logo").innerHTML = appIcon(app);
+    document.getElementById("appinfo-name").textContent = app.name;
+    document.getElementById("appinfo-category").textContent = app.category;
+    document.getElementById("appinfo-trial").textContent = app.trialDays > 0
+      ? `${app.trialDays}-day free trial, then billed automatically`
+      : "No free trial for this app -- billed immediately";
+
+    document.getElementById("appinfo-currency").innerHTML = currencyOptionsHtml(appInfoCurrency);
+    const plans = renderAppInfoPlans();
+    document.getElementById("appinfo-custom-price").value = plans[1].converted.toFixed(2);
+
+    hideAllScreens();
+    document.getElementById("screen-app-info").classList.remove("hidden");
+    document.getElementById("bottom-nav").classList.add("hidden");
+  }
+
+  // Plan tiers are derived in USD (see derivePlans) then converted into
+  // whichever currency is currently selected -- called on open and again
+  // whenever the currency dropdown changes.
+  function renderAppInfoPlans() {
+    const plans = derivePlans(pendingApp.price).map((p) => ({ ...p, converted: convert(p.price, "USD", appInfoCurrency) }));
+    document.getElementById("appinfo-plans").innerHTML = plans.map((plan, i) => `
+      <label class="flex items-center justify-between rounded-xl border px-4 py-3 cursor-pointer ${i === 1 ? "border-coral bg-coral/10" : "border-ink/10 bg-cream-card"}">
+        <span class="flex items-center gap-2">
+          <input type="radio" name="plan-select" value="${plan.converted}" ${i === 1 ? "checked" : ""} onchange="document.getElementById('appinfo-custom-price').value = parseFloat(this.value).toFixed(2)" />
+          <span class="font-body font-semibold text-sm text-ink">${plan.name}</span>
+        </span>
+        <span class="font-display font-bold text-sm text-ink">${money(plan.converted, appInfoCurrency)}/mo</span>
+      </label>`).join("");
+    return plans;
+  }
+
+  // Changing currency re-converts whatever the user already typed in "Your
+  // Price" (rather than silently resetting it back to a plan default), so a
+  // manual customization survives a currency switch.
+  function onAppInfoCurrencyChange() {
+    const newCurrency = document.getElementById("appinfo-currency").value;
+    const customInput = document.getElementById("appinfo-custom-price");
+    const currentVal = parseFloat(customInput.value) || 0;
+    const convertedCustom = convert(currentVal, appInfoCurrency, newCurrency);
+    appInfoCurrency = newCurrency;
+    renderAppInfoPlans();
+    customInput.value = convertedCustom.toFixed(2);
+  }
+
+  function hideAppInfo() {
+    document.getElementById("screen-app-info").classList.add("hidden");
+    document.getElementById("bottom-nav").classList.remove("hidden");
+    document.getElementById(`screen-${lastScreen}`).classList.remove("hidden");
+  }
+
+  // "Your Price" is always the value actually saved -- the plan radios are
+  // just a convenience that pre-fill it, so someone paying a different
+  // amount than any listed tier can simply type it in directly.
+  function confirmAddFromAppInfo() {
+    if (!pendingApp) return;
+    const price = parseFloat(document.getElementById("appinfo-custom-price").value);
+    const currency = document.getElementById("appinfo-currency").value;
+    const finalApp = { ...pendingApp, price: isNaN(price) ? pendingApp.price : price, currency, cycle: "Monthly" };
+    if (!SUBSCRIPTIONS.some((s) => s.name === finalApp.name)) {
+      SUBSCRIPTIONS.unshift(finalApp); // newest addition shows first, in Home and Subscriptions
+      renderAll();
+    }
+    pendingApp = null;
+    hideAllScreens();
+    document.getElementById("bottom-nav").classList.remove("hidden");
+    showScreen("subs");
+  }
+
+  function hideAllScreens() {
+    screens.forEach((s) => document.getElementById(`screen-${s}`).classList.add("hidden"));
+    document.getElementById("screen-detail").classList.add("hidden");
+    document.getElementById("screen-app-info").classList.add("hidden");
+    document.getElementById("screen-auth").classList.add("hidden");
+  }
+
+  // ---- Add Subscription modal (shared by both "+" buttons) ----
+  function toggleAddModal(open) {
+    document.getElementById("add-modal").classList.toggle("hidden", !open);
+    if (open) {
+      document.getElementById("add-search-input").value = "";
+      renderAppResults();
+      document.getElementById("add-search-input").focus();
+    }
+  }
+
+  function renderAppResults() {
+    const query = document.getElementById("add-search-input").value.trim();
+    const alreadyAdded = new Set(SUBSCRIPTIONS.map((s) => s.name));
+    const matches = KNOWN_APPS.filter((app) => query === "" || app.name.toLowerCase().includes(query.toLowerCase()));
+
+    let html = matches.map((app) => {
+      const added = alreadyAdded.has(app.name);
+      return `
+        <button ${added ? "disabled" : `onclick="openAppInfoKnown('${app.name.replace(/'/g, "\\'")}')"`}
+          class="flex items-center justify-between rounded-xl px-4 py-3 border border-ink/10 ${added ? "bg-ink/5 opacity-50" : "bg-cream-card active:scale-[0.98]"} transition-transform text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-lg bg-white border border-ink/10 flex items-center justify-center shrink-0 p-1.5">${appIcon(app)}</div>
+            <div class="min-w-0">
+              <p class="font-display font-bold text-sm text-ink truncate">${app.name}</p>
+              <p class="font-body text-xs text-ink-soft truncate">${app.category} · ${money(app.price, app.currency)}/${app.cycle === "Yearly" ? "yr" : "mo"}</p>
+            </div>
+          </div>
+          <span class="font-body text-xs font-semibold ${added ? "text-ink-soft" : "text-coral-dark"} shrink-0 ml-2">${added ? "Added" : "View"}</span>
+        </button>`;
+    }).join("");
+
+    // Not limited to the curated list -- typing anything not found above
+    // still gets an explicit "add it anyway" option using a best-effort
+    // logo lookup (see freeformIcon), so *any* subscription in the world
+    // can be added, not just these 13.
+    const exactKnownMatch = KNOWN_APPS.some((a) => a.name.toLowerCase() === query.toLowerCase());
+    if (query !== "" && !exactKnownMatch) {
+      const freeform = makeFreeformApp(query);
+      html += `
+        <button onclick="openAppInfoFreeform()" class="flex items-center gap-3 rounded-xl px-4 py-3 border border-dashed border-ink/25 bg-cream-card active:scale-[0.98] transition-transform text-left">
+          <div class="w-10 h-10 rounded-lg bg-white border border-ink/10 flex items-center justify-center shrink-0 p-1.5">${appIcon(freeform)}</div>
+          <div class="min-w-0">
+            <p class="font-display font-bold text-sm text-ink truncate">Add "${freeform.name}"</p>
+            <p class="font-body text-xs text-ink-soft truncate">Not in our suggestions -- add it anyway</p>
+          </div>
+        </button>`;
+    }
+
+    document.getElementById("add-results").innerHTML = html || `<p class="font-body text-sm text-ink-soft text-center py-6">Start typing to search...</p>`;
+  }
+
+  function openAppInfoKnown(name) {
+    const app = KNOWN_APPS.find((a) => a.name === name);
+    if (app) openAppInfo(app);
+  }
+  function openAppInfoFreeform() {
+    const query = document.getElementById("add-search-input").value.trim();
+    if (query) openAppInfo(makeFreeformApp(query));
+  }
+
+  // ---- Nav / screen switching ----
+  const screens = ["home", "subs", "insights", "profile"];
+  function showScreen(name) {
+    screens.forEach((s) => {
+      document.getElementById(`screen-${s}`).classList.toggle("hidden", s !== name);
+    });
+    document.getElementById("screen-detail").classList.add("hidden");
+    document.getElementById("screen-app-info").classList.add("hidden");
+    document.getElementById("screen-auth").classList.add("hidden");
+    document.getElementById("bottom-nav").classList.remove("hidden");
+    lastScreen = name;
+    if (name === "profile") renderProfileList();
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      const active = btn.dataset.screen === name;
+      btn.classList.toggle("bg-coral", active);
+      btn.classList.toggle("text-white", active);
+      btn.classList.toggle("text-white/50", !active);
+    });
+    toggleSettingsSheet(false);
+    toggleAddModal(false);
+  }
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => showScreen(btn.dataset.screen));
+  });
+
+  function toggleSettingsSheet(open) {
+    document.getElementById("settings-sheet").classList.toggle("hidden", !open);
+    if (open) {
+      document.getElementById("home-currency-select").innerHTML = currencyOptionsHtml(activeProfile().homeCurrency);
+    }
+  }
+
+  function setHomeCurrency(code) {
+    activeProfile().homeCurrency = code;
+    renderAll();
+  }
+
+  function toggleSwitch(btn) {
+    const on = btn.dataset.on === "true";
+    btn.dataset.on = String(!on);
+    btn.classList.toggle("bg-coral", !on);
+    btn.classList.toggle("bg-ink/15", on);
+    const dot = btn.querySelector(".toggle-dot");
+    dot.style.left = !on ? "calc(100% - 22px)" : "2px";
+  }
+
+  // Actually flips the whole mockup to dark mode, not just a decorative
+  // switch -- toggles .dark on #phone-screen, which remaps the CSS
+  // variables every themed Tailwind color above resolves to.
+  function toggleDarkMode(btn) {
+    toggleSwitch(btn);
+    const isDark = btn.dataset.on === "true";
+    document.getElementById("phone-screen").classList.toggle("dark", isDark);
+  }
+
+  // ---- Sign In / Create Account (UI only -- no real backend here yet) ----
+  let authMode = "signin";
+  function setAuthTab(mode) {
+    authMode = mode;
+    document.getElementById("auth-tab-signin").classList.toggle("bg-navy", mode === "signin");
+    document.getElementById("auth-tab-signin").classList.toggle("text-cream", mode === "signin");
+    document.getElementById("auth-tab-signup").classList.toggle("bg-navy", mode === "signup");
+    document.getElementById("auth-tab-signup").classList.toggle("text-cream", mode === "signup");
+    document.getElementById("auth-name-field").classList.toggle("hidden", mode !== "signup");
+    document.getElementById("auth-phone-field").classList.toggle("hidden", mode !== "signup");
+    document.getElementById("auth-phone-hint").classList.toggle("hidden", mode !== "signup");
+    document.getElementById("auth-submit-btn").textContent = mode === "signup" ? "Create Account" : "Sign In";
+  }
+
+  function submitAuth() {
+    const email = document.getElementById("auth-email").value.trim();
+    if (authMode === "signup") {
+      const name = document.getElementById("auth-name").value.trim() || "New User";
+      const phone = document.getElementById("auth-phone").value.trim();
+      const profile = { id: `p${Date.now()}`, name, email: email || "unknown@example.com", phone, homeCurrency: "USD", subscriptions: [] };
+      PROFILES.push(profile);
+      activeProfileId = profile.id;
+      SUBSCRIPTIONS = profile.subscriptions;
+    } else {
+      const match = PROFILES.find((p) => p.email.toLowerCase() === email.toLowerCase()) || PROFILES[0];
+      activeProfileId = match.id;
+      SUBSCRIPTIONS = match.subscriptions;
+    }
+    renderAll();
+    document.getElementById("auth-email").value = "";
+    document.getElementById("auth-password").value = "";
+    document.getElementById("auth-name").value = "";
+    document.getElementById("auth-phone").value = "";
+    showScreen("home");
+  }
+
+  function signOut() {
+    toggleSettingsSheet(false);
+    setAuthTab("signin");
+    hideAllScreens();
+    document.getElementById("bottom-nav").classList.add("hidden");
+    document.getElementById("screen-auth").classList.remove("hidden");
+  }
+
+  setAuthTab("signin");
+  renderAll();
+  renderProfileList();
+  fetchRates();
+</script>
+
+</body>
+</html>

@@ -5,66 +5,139 @@
 @import "nativewind/theme";
 
 @theme {
-    /* Design system ported from design-preview/home.html — applies to every screen */
-    --color-background: #131313;
-    --color-on-background: #e5e2e1;
+    /* Design system ported from design-preview/subscriptions-reference.html
+       (cream/navy/coral, Baloo 2 + Plus Jakarta Sans) -- this app is a
+       subscription tracker now, not the earlier music-player concept.
+       Light values here are the defaults; dark overrides are further down
+       under @media (prefers-color-scheme: dark), which NativeWind resolves
+       at runtime the same way it resolves @media ios / @media android
+       (see node_modules/nativewind/theme.css) -- so Appearance.setColorScheme()
+       (see hooks/useThemePreference.ts) drives it, not just the OS setting. */
+    --color-background: #F8F2E3;
+    --color-on-background: #1E1B16;
 
-    --color-surface: #131313;
-    --color-surface-dim: #131313;
-    --color-surface-bright: #3a3939;
-    --color-surface-container-lowest: #0e0e0e;
-    --color-surface-container-low: #1c1b1b;
-    --color-surface-container: #201f1f;
-    --color-surface-container-high: #2a2a2a;
-    --color-surface-container-highest: #353534;
-    --color-surface-variant: #353534;
-    --color-on-surface: #e5e2e1;
-    --color-on-surface-variant: #bccbb9;
-    --color-outline: #869585;
-    --color-outline-variant: #3d4a3d;
-    --color-inverse-surface: #e5e2e1;
-    --color-inverse-on-surface: #313030;
+    --color-surface: #F8F2E3;
+    --color-surface-dim: #F3EEDD;
+    --color-surface-bright: #FFFDF6;
+    --color-surface-container-lowest: #FFFDF6;
+    --color-surface-container-low: #FBF7EC;
+    --color-surface-container: #FFFDF6;
+    --color-surface-container-high: #F3EEDD;
+    --color-surface-container-highest: #EAE3CE;
+    --color-surface-variant: #F3EEDD;
+    --color-on-surface: #1E1B16;
+    --color-on-surface-variant: #8C8477;
+    --color-outline: #8C8477;
+    --color-outline-variant: #E7E0D0;
+    --color-inverse-surface: #1E1B16;
+    --color-inverse-on-surface: #F8F2E3;
 
-    --color-primary: #53e076;
-    --color-primary-container: #1db954;
-    --color-on-primary: #003914;
-    --color-on-primary-container: #004118;
-    --color-inverse-primary: #006e2d;
-    --color-primary-fixed: #72fe8f;
-    --color-primary-fixed-dim: #53e076;
-    --color-on-primary-fixed: #002108;
-    --color-on-primary-fixed-variant: #005320;
+    --color-primary: #D9785C;
+    --color-primary-container: #F6D9CC;
+    --color-on-primary: #FFFFFF;
+    --color-on-primary-container: #6B2E1B;
+    --color-inverse-primary: #F2A98A;
+    --color-primary-fixed: #F6D9CC;
+    --color-primary-fixed-dim: #D9785C;
+    --color-on-primary-fixed: #3A1409;
+    --color-on-primary-fixed-variant: #C4674C;
 
-    --color-secondary: #c8c6c5;
-    --color-secondary-container: #474746;
-    --color-on-secondary: #303030;
-    --color-on-secondary-container: #b7b5b4;
-    --color-secondary-fixed: #e5e2e1;
-    --color-secondary-fixed-dim: #c8c6c5;
-    --color-on-secondary-fixed: #1b1b1c;
-    --color-on-secondary-fixed-variant: #474746;
+    --color-secondary: #1E1B16;
+    --color-secondary-container: #EAE3CE;
+    --color-on-secondary: #FFFFFF;
+    --color-on-secondary-container: #4A453A;
+    --color-secondary-fixed: #EAE3CE;
+    --color-secondary-fixed-dim: #8C8477;
+    --color-on-secondary-fixed: #1E1B16;
+    --color-on-secondary-fixed-variant: #4A453A;
 
-    --color-tertiary: #c8c6c5;
-    --color-tertiary-container: #a2a1a0;
-    --color-on-tertiary: #303030;
-    --color-on-tertiary-container: #383838;
-    --color-tertiary-fixed: #e4e2e1;
-    --color-tertiary-fixed-dim: #c8c6c5;
-    --color-on-tertiary-fixed: #1b1c1c;
-    --color-on-tertiary-fixed-variant: #474746;
+    --color-tertiary: #14172A;
+    --color-tertiary-container: #DCD3F3;
+    --color-on-tertiary: #FFFFFF;
+    --color-on-tertiary-container: #14172A;
+    --color-tertiary-fixed: #DCD3F3;
+    --color-tertiary-fixed-dim: #14172A;
+    --color-on-tertiary-fixed: #14172A;
+    --color-on-tertiary-fixed-variant: #2A2E4C;
 
-    --color-error: #ffb4ab;
-    --color-error-container: #93000a;
-    --color-on-error: #690005;
-    --color-on-error-container: #ffdad6;
+    --color-error: #C0392B;
+    --color-error-container: #F6D5D0;
+    --color-on-error: #FFFFFF;
+    --color-on-error-container: #4E120A;
 
     --color-success: #2f9e44;
 
+    /* Softer, rounder corners app-wide (mockup uses 1.5rem/2rem radii vs.
+       Tailwind's much smaller defaults) -- overriding the scale here means
+       every existing `rounded-lg`/`rounded-xl` className picks this up
+       without editing each screen individually. */
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 2rem;
+
     /* Fonts loaded via @expo-google-fonts in app/_layout.tsx */
-    --font-sans: "Geist_400Regular";
-    --font-sans-medium: "Geist_500Medium";
-    --font-sans-semibold: "Geist_600SemiBold";
-    --font-sans-bold: "Geist_700Bold";
-    --font-mono: "SpaceMono_400Regular";
-    --font-mono-bold: "SpaceMono_700Bold";
+    --font-sans: "PlusJakartaSans_400Regular";
+    --font-sans-medium: "PlusJakartaSans_500Medium";
+    --font-sans-semibold: "PlusJakartaSans_600SemiBold";
+    --font-sans-bold: "PlusJakartaSans_700Bold";
+    --font-display: "Baloo2_700Bold";
+    --font-display-medium: "Baloo2_600SemiBold";
+    --font-mono: "PlusJakartaSans_400Regular";
+    --font-mono-bold: "PlusJakartaSans_700Bold";
+}
+
+:root {
+  @media (prefers-color-scheme: dark) {
+    --color-background: #14172A;
+    --color-on-background: #F2EFE6;
+
+    --color-surface: #14172A;
+    --color-surface-dim: #14172A;
+    --color-surface-bright: #262B47;
+    --color-surface-container-lowest: #0A0C16;
+    --color-surface-container-low: #181C33;
+    --color-surface-container: #1E2238;
+    --color-surface-container-high: #262B47;
+    --color-surface-container-highest: #2E3454;
+    --color-surface-variant: #262B47;
+    --color-on-surface: #F2EFE6;
+    --color-on-surface-variant: #9CA3C2;
+    --color-outline: #9CA3C2;
+    --color-outline-variant: #2E3454;
+    --color-inverse-surface: #F2EFE6;
+    --color-inverse-on-surface: #14172A;
+
+    --color-primary: #D9785C;
+    --color-primary-container: #6B2E1B;
+    --color-on-primary: #FFFFFF;
+    --color-on-primary-container: #F6D9CC;
+    --color-inverse-primary: #C4674C;
+    --color-primary-fixed: #F6D9CC;
+    --color-primary-fixed-dim: #D9785C;
+    --color-on-primary-fixed: #3A1409;
+    --color-on-primary-fixed-variant: #C4674C;
+
+    --color-secondary: #F2EFE6;
+    --color-secondary-container: #2E3454;
+    --color-on-secondary: #14172A;
+    --color-on-secondary-container: #C5CBE0;
+    --color-secondary-fixed: #2E3454;
+    --color-secondary-fixed-dim: #9CA3C2;
+    --color-on-secondary-fixed: #F2EFE6;
+    --color-on-secondary-fixed-variant: #C5CBE0;
+
+    --color-tertiary: #DCD3F3;
+    --color-tertiary-container: #2A2E4C;
+    --color-on-tertiary: #14172A;
+    --color-on-tertiary-container: #DCD3F3;
+    --color-tertiary-fixed: #2A2E4C;
+    --color-tertiary-fixed-dim: #DCD3F3;
+    --color-on-tertiary-fixed: #F2EFE6;
+    --color-on-tertiary-fixed-variant: #DCD3F3;
+
+    --color-error: #FF6B5D;
+    --color-error-container: #4E120A;
+    --color-on-error: #2B0A06;
+    --color-on-error-container: #F6D5D0;
+  }
 }

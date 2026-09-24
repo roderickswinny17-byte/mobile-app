@@ -107,7 +107,7 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
       <CardField
         postalCodeEnabled={false}
         placeholders={{ number: "4242 4242 4242 4242" }}
-        cardStyle={{ backgroundColor: "#1c1b1b", textColor: "#e5e2e1" }}
+        cardStyle={{ backgroundColor: "#FFFDF6", textColor: "#1E1B16", placeholderColor: "#8C8477" }}
         style={{ height: 50, marginVertical: 12 }}
         onCardChange={(details) => setCardComplete(details.complete)}
       />
@@ -120,9 +120,9 @@ const StripeCardPaymentForm = ({ planId, cycle }: Props) => {
         className="items-center rounded-lg bg-primary px-6 py-4"
       >
         {loading ? (
-          <ActivityIndicator color="#003914" />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="font-sans-medium text-on-primary">Subscribe</Text>
+          <Text className="font-display-medium text-on-primary">Subscribe</Text>
         )}
       </Pressable>
     </>

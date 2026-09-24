@@ -1,111 +1,122 @@
-import { useState } from "react";
-import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
+import { useCallback } from "react";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { GestureDetector } from "react-native-gesture-handler";
 import { useSwipeTabNavigation } from "@/hooks/useSwipeTabNavigation";
 import { useProfile } from "@/hooks/useProfile";
-import { useSubscription } from "@/hooks/useSubscription";
-import { MOODS } from "@/lib/moods";
+import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
+import { useThemeColors } from "@/hooks/useThemeColors";
+import { SubscriptionRow } from "@/components/SubscriptionRow";
+import { AppIcon } from "@/components/AppIcon";
+import { formatMoney } from "@/lib/currency";
 
 const Home = () => {
   const panGesture = useSwipeTabNavigation();
-  const { profile, loading, error } = useProfile();
-  const { subscription } = useSubscription();
-  const [profileOpen, setProfileOpen] = useState(false);
+  const { profile, loading: profileLoading } = useProfile();
+  const { subscriptions, loading, error, reload } = useTrackedSubscriptions();
+  const colors = useThemeColors();
+
+  // Tab screens stay mounted when navigating to the Add Subscription modal
+  // and back, so the list needs an explicit refresh on refocus rather than
+  // relying on a mount-only effect.
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload])
+  );
+
+  const upcoming = subscriptions.slice(0, 3);
+  const initial = (profile?.first_name?.charAt(0) ?? "?").toUpperCase();
 
   return (
     <GestureDetector gesture={panGesture}>
-      <View className="flex-1 bg-background px-6 pt-16">
-        {loading ? (
-          <ActivityIndicator />
-        ) : error ? (
-          <Text className="font-sans text-error">{error}</Text>
-        ) : (
-          <>
-            <View className="flex-row items-center gap-3">
-              <Pressable
-                onPress={() => setProfileOpen(true)}
-                className="h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-primary/20"
-              >
-                <Text className="font-sans-bold text-lg text-primary">
-                  {profile?.first_name?.[0]?.toUpperCase()}
-                  {profile?.last_name?.[0]?.toUpperCase()}
-                </Text>
-              </Pressable>
-              <View>
-                <Text className="font-sans-bold text-2xl text-on-background">
-                  Welcome {profile?.first_name} {profile?.last_name}
-                </Text>
-                <Text className="font-sans text-base text-on-surface-variant">
-                  How&apos;s your mood?
+      <FlatList
+        className="flex-1 bg-background"
+        contentContainerStyle={{ gap: 12, paddingHorizontal: 24, paddingBottom: 112, paddingTop: 64 }}
+        data={subscriptions}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <SubscriptionRow sub={item} />}
+        ListHeaderComponent={
+          <View className="gap-6">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3">
+                <View className="h-11 w-11 items-center justify-center rounded-full bg-on-background">
+                  <Text className="font-display-medium text-lg text-background">
+                    {profileLoading ? "" : initial}
+                  </Text>
+                </View>
+                <Text className="font-display text-xl text-on-background">
+                  {profile?.first_name ?? ""}
                 </Text>
               </View>
+              <Pressable
+                onPress={() => router.push("/subscriptions/add")}
+                className="h-10 w-10 items-center justify-center rounded-full bg-on-background active:opacity-80"
+              >
+                <Ionicons name="add" size={22} color={colors.background} />
+              </Pressable>
             </View>
 
-            <View className="mt-6 flex-row flex-wrap gap-3">
-              {MOODS.map((m) => (
-                <Pressable
-                  key={m.key}
-                  onPress={() =>
-                    router.push({ pathname: "/songs/[mood]", params: { mood: m.key } })
-                  }
-                  className="w-[47%] items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container py-6"
-                >
-                  <Text className="text-3xl">{m.emoji}</Text>
-                  <Text className="font-sans-medium text-on-surface">{m.label}</Text>
-                </Pressable>
-              ))}
+            <View className="gap-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="font-display-medium text-xl text-on-background">Upcoming</Text>
+                <View className="rounded-full border border-outline-variant px-4 py-1.5">
+                  <Text className="font-sans-semibold text-xs text-on-surface-variant">View all</Text>
+                </View>
+              </View>
+              {upcoming.length === 0 ? (
+                <Text className="font-sans text-on-surface-variant">Nothing added yet.</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View className="flex-row gap-3">
+                    {upcoming.map((sub) => (
+                      <Pressable
+                        key={sub.id}
+                        onPress={() => router.push(`/subscriptions/${sub.id}`)}
+                        className="w-32 gap-2 rounded-xl border border-outline-variant bg-surface-container p-3"
+                      >
+                        <View className="h-9 w-9 items-center justify-center rounded-full border border-outline-variant bg-white p-1.5">
+                          <AppIcon iconKey={sub.icon_key} name={sub.service_name} size={22} />
+                        </View>
+                        <Text className="font-display-medium text-base text-on-surface">
+                          {formatMoney(sub.monthly_cost, sub.currency)}
+                        </Text>
+                        <Text className="font-sans text-[11px] text-on-surface-variant">renews soon</Text>
+                        <Text className="font-sans-semibold text-xs text-on-surface" numberOfLines={1}>
+                          {sub.service_name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </View>
-          </>
-        )}
 
-        <Modal
-          visible={profileOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setProfileOpen(false)}
-        >
-          <Pressable
-            className="flex-1 items-center justify-center bg-black/60 px-8"
-            onPress={() => setProfileOpen(false)}
-          >
-            <Pressable
-              onPress={(e) => e.stopPropagation()}
-              className="w-full gap-3 rounded-lg bg-surface-container p-6"
-            >
-              <Text className="font-sans-bold text-xl text-on-surface">
-                {profile?.first_name} {profile?.last_name}
+            <View className="flex-row items-center justify-between">
+              <Text className="font-display-medium text-xl text-on-background">
+                All Subscriptions
               </Text>
-              <View className="gap-1">
-                <Text className="font-sans text-xs uppercase tracking-widest text-on-surface-variant">
-                  Email
-                </Text>
-                <Text className="font-sans text-on-surface">{profile?.email}</Text>
-              </View>
-              <View className="gap-1">
-                <Text className="font-sans text-xs uppercase tracking-widest text-on-surface-variant">
-                  Phone
-                </Text>
-                <Text className="font-sans text-on-surface">
-                  {profile?.phone_number || "Not set"}
-                </Text>
-              </View>
-              <View className="gap-1">
-                <Text className="font-sans text-xs uppercase tracking-widest text-on-surface-variant">
-                  Plan
-                </Text>
-                <Text className="font-sans text-on-surface">{subscription?.plan ?? "Normal"}</Text>
-              </View>
               <Pressable
-                onPress={() => setProfileOpen(false)}
-                className="mt-2 items-center rounded-lg bg-primary px-6 py-3"
+                onPress={() => router.push("/subscriptions")}
+                className="rounded-full border border-outline-variant px-4 py-1.5"
               >
-                <Text className="font-sans-medium text-on-primary">Close</Text>
+                <Text className="font-sans-semibold text-xs text-on-surface-variant">View all</Text>
               </Pressable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      </View>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          error ? (
+            <Text className="font-sans text-error">Couldn&apos;t load your subscriptions: {error}</Text>
+          ) : loading ? (
+            <ActivityIndicator />
+          ) : (
+            <Text className="font-sans text-on-surface-variant">No subscriptions tracked yet.</Text>
+          )
+        }
+        ItemSeparatorComponent={() => <View className="h-3" />}
+      />
     </GestureDetector>
   );
 };

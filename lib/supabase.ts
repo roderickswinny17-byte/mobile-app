@@ -1,6 +1,7 @@
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
+import { upsertCachedAccount } from "./accountSessions";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -30,3 +31,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+// Keeps the local multi-account directory (see accountSessions.ts / the
+// account switcher in Settings) up to date with whichever session is
+// currently live -- including TOKEN_REFRESHED, since refresh tokens rotate
+// on every use and a stale cached one would fail the next time you switch
+// back to this account.
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (!session?.user) return;
+    if (event !== "SIGNED_IN" && event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") return;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", session.user.id)
+      .single();
+    if (!profile) return;
+    await upsertCachedAccount({
+      userId: session.user.id,
+      email: profile.email,
+      firstName: profile.first_name,
+      lastName: profile.last_name,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+    });
+  });
+}
