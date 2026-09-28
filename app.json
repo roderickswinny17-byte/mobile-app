@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "mobile-app",
-    "slug": "mobile-app",
+    "slug": "subscription-tracker",
+    "owner": "voola_software_solutions",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -18,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobileapp"
+      "package": "com.voola.mobileapp.subscriptiontracker"
     },
     "web": {
       "output": "single",
@@ -59,7 +60,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2121c64a-4891-4a30-92af-225aeca5189e"
+        "projectId": "a21c2a06-d95c-4251-be73-9eb5b061f0e7"
       }
     }
   }
