@@ -67,6 +67,17 @@
 
     --color-success: #2f9e44;
 
+    /* "Renewing soon" -- a pastel container alone can't contrast against
+       this app's own light/dark page backgrounds (both land ~1.1-1.5:1,
+       verified with the real WCAG luminance formula -- two light tones or
+       two dark tones just can't ever contrast much no matter the hue). The
+       distinctiveness has to come from a solid accent (left bar + icon
+       badge), which is why --color-warning is a strong, real color while
+       the container stays a soft tint just for the text underneath it. */
+    --color-warning: #8A5700;
+    --color-warning-container: #F7D98C;
+    --color-on-warning-container: #4A2E00;
+
     /* Softer, rounder corners app-wide (mockup uses 1.5rem/2rem radii vs.
        Tailwind's much smaller defaults) -- overriding the scale here means
        every existing `rounded-lg`/`rounded-xl` className picks this up
@@ -139,5 +150,14 @@
     --color-error-container: #4E120A;
     --color-on-error: #2B0A06;
     --color-on-error-container: #F6D5D0;
+
+    /* Deliberately a different, brighter accent than light mode's --
+       #F0B429 reads clearly against the dark navy page background (9.5:1,
+       verified) the way a deep amber wouldn't. Its icon-badge glyph has to
+       be dark navy, not white, here -- white-on-#F0B429 only measures
+       1.86:1 and fails outright. */
+    --color-warning: #F0B429;
+    --color-warning-container: #4A3200;
+    --color-on-warning-container: #FCE9B8;
   }
 }

@@ -19,6 +19,7 @@ import { CURRENCIES } from "@/lib/currency";
 import { computeBleedScore } from "@/lib/bleedScore";
 import { BleedIcon } from "@/components/BleedIcon";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 // Postponed, not removed -- this app's own "More Subscription Plans" upsell
 // (below, and its PLANS data here) is commented out for now. Un-comment this
@@ -345,21 +346,25 @@ const Settings = () => {
                     : "Never scanned yet"}
                 </Text>
               </View>
-              <View className="flex-row gap-2">
+              <View className="flex-row items-center gap-2">
                 <Pressable
                   onPress={async () => {
                     await emailConnection.scanNow();
                     router.push("/subscriptions/detected");
                   }}
                   disabled={emailConnection.scanning}
-                  className="flex-1 items-center rounded-lg bg-primary px-6 py-3"
+                  className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3"
                 >
                   {emailConnection.scanning ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text className="font-display-medium text-on-primary">Scan Now</Text>
+                    <>
+                      <Ionicons name="mail-open-outline" size={18} color="#FFFFFF" />
+                      <Text className="font-display-medium text-on-primary">Scan Now</Text>
+                    </>
                   )}
                 </Pressable>
+                <InfoTooltip text="Reads your Gmail 'Purchases' category only, looking for subscription receipts. Nothing is added to your subscriptions until you review and approve each one." />
                 <Pressable
                   onPress={emailConnection.disconnect}
                   className="items-center rounded-lg border border-outline-variant px-4 py-3"
@@ -367,6 +372,10 @@ const Settings = () => {
                   <Text className="font-sans-semibold text-sm text-on-surface">Disconnect</Text>
                 </Pressable>
               </View>
+              <Text className="font-sans text-[11px] text-on-surface-variant">
+                Scanning fetches data from your connected Gmail account (Purchases category only). This may
+                take a moment.
+              </Text>
             </View>
           ) : (
             <Pressable

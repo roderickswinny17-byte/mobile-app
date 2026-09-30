@@ -359,33 +359,29 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id);
     }
 
-    // No longer restricted to KNOWN_SENDERS -- that was a hard ceiling: a
-    // real subscription (confirmed via a diagnostic run: Claude Pro via
-    // Google Play, ₹1999/mo) was invisible purely because its domain wasn't
-    // on the curated list. category:purchases is Gmail's own "Purchases" tab
-    // classifier; the keyword OR-list catches receipt-flavored mail Gmail
-    // didn't tag that way. 180d (not 90d) so a once-a-year renewal still has
-    // a chance to be inside the window. maxResults/pagination is capped at
-    // MAX_MESSAGES total -- a diagnostic run against a real, busy inbox with
-    // no cap started hitting Gmail API rate limits and taking minutes, which
-    // a real scan (triggered synchronously from the app, one HTTP request)
-    // can't afford.
+    // Restricted to Gmail's own "Purchases" category ONLY -- this is a
+    // deliberate privacy/data-minimization boundary, not just a relevance
+    // filter: the app's privacy policy specifically tells users Gmail data
+    // collection is scoped to receipt/purchase-type mail, and an earlier
+    // version of this query also matched a broad keyword list (subscription,
+    // renewal, receipt, invoice, etc.) across subject/body TEXT ANYWHERE IN
+    // THE INBOX, not just Gmail's own Purchases classification -- that's a
+    // materially wider scan than what's disclosed. category:purchases is
+    // Gmail's own classifier decision, made before this app ever sees
+    // anything, so nothing outside it is ever fetched at all now. This does
+    // mean a genuine receipt Gmail itself didn't happen to tag as a purchase
+    // (rare for real e-commerce/subscription mail, but possible) won't be
+    // found -- a real precision/recall tradeoff made deliberately in favor
+    // of the narrower, more defensible data-collection claim.
     //
-    // NOISY_NON_SUBSCRIPTION_DOMAINS is a second finding from that same
-    // diagnostic: on a real, busy inbox, ride-hailing/food-delivery/generic
+    // NOISY_NON_SUBSCRIPTION_DOMAINS: ride-hailing/food-delivery/generic
     // e-commerce/payment-gateway-donation mail (Uber, Zomato, Amazon,
-    // Swiggy, BigBasket, Instamart, Razorpay) alone made up ~30% of every
-    // candidate matched -- almost none of it a subscription (Uber's own
-    // "Uber One" marketing emails were the one exception, and even those
-    // turned out to be upsell ads, not receipts). On an account with heavy
-    // day-to-day transaction volume, that noise was crowding a genuinely
-    // older subscription receipt (a once-yearly renewal) out of the
-    // MAX_MESSAGES budget entirely. Excluding them frees that budget for
-    // mail that's actually likely to be a subscription. A curated sender can
-    // never be excluded by this (domainClause below ORs it back in
-    // unconditionally), and nothing stops a legitimate subscription charge
-    // that happens to route through Razorpay/etc. from still being found if
-    // it's worded distinctly enough to not need this budget at all.
+    // Swiggy, BigBasket, Instamart, Razorpay) is also genuinely
+    // Gmail-categorized as "Purchases" (they're real purchase confirmations)
+    // but confirmed via a real-account diagnostic to be ~30% of every match
+    // with almost never a subscription -- excluded to keep the review queue
+    // (and the MAX_MESSAGES budget) usable, not to widen scope beyond
+    // Purchases.
     const NOISY_NON_SUBSCRIPTION_DOMAINS = [
       "uber.com",
       "zomato.com",
@@ -397,10 +393,8 @@ Deno.serve(async (req) => {
       "razorpay.com",
       "redditmail.com",
     ];
-    const domainClause = KNOWN_SENDERS.map((s) => `from:${s.domain}`).join(" OR ");
     const exclusionClause = NOISY_NON_SUBSCRIPTION_DOMAINS.map((d) => `-from:${d}`).join(" ");
-    const query =
-      `newer_than:180d ((${domainClause}) OR category:purchases OR subscription OR "auto-renew" OR renewal OR membership OR recurring OR receipt OR invoice OR billed OR charged) ${exclusionClause}`;
+    const query = `newer_than:180d category:purchases ${exclusionClause}`;
     const MAX_MESSAGES = 200;
 
     let pageToken: string | undefined;
