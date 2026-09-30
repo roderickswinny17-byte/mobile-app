@@ -102,16 +102,32 @@ export default function DetectedSubscriptions() {
                     {primary.service_name}
                   </Text>
                   {group.length > 1 ? (
-                    <View className="h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5">
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: "/subscriptions/detected-group",
+                          params: { ids: group.map((item) => item.id).join(","), name: primary.service_name },
+                        })
+                      }
+                      className="h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5"
+                    >
                       <Text className="font-sans-bold text-[11px] text-on-primary">×{group.length}</Text>
-                    </View>
+                    </Pressable>
                   ) : null}
                 </View>
                 {group.length > 1 ? (
-                  <Text className="-mt-2 font-sans text-[11px] text-on-surface-variant">
-                    {group.length} emails from {primary.service_name} -- adding this counts as one
-                    subscription.
-                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/subscriptions/detected-group",
+                        params: { ids: group.map((item) => item.id).join(","), name: primary.service_name },
+                      })
+                    }
+                  >
+                    <Text className="-mt-2 font-sans text-[11px] text-primary underline">
+                      {group.length} emails from {primary.service_name} -- tap to see what each one says
+                    </Text>
+                  </Pressable>
                 ) : null}
 
                 <View className="flex-row items-center gap-2 rounded-lg border border-outline-variant bg-background px-3 py-2">

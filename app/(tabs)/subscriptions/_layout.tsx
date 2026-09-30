@@ -9,6 +9,8 @@ export default function SubscriptionsLayout() {
       <Stack.Screen name="app-info" />
       <Stack.Screen name="linked-summary" />
       <Stack.Screen name="detected" />
+      <Stack.Screen name="detected-group" />
+      <Stack.Screen name="bleed" />
       <Stack.Screen name="add" options={{ presentation: "modal" }} />
     </Stack>
   );

@@ -1,11 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// Curated known senders -- the Gmail search targets these specifically
-// instead of guessing from subject keywords across the whole inbox (that
-// approach produced a false positive: "Kiranmai Duggirala" detected from an
-// unrelated email that happened to match a subject keyword). Nothing
-// outside this list is ever scanned at all. Add a verified sender
-// domain/address here to detect a new service.
+// Curated senders -- when a matched email comes from one of these, its
+// serviceName/iconKey are taken from here instead of guessed from the
+// "From" header, and only the receipt-evidence gate (looksLikeReceipt)
+// applies to it, same as before. This is no longer the only thing that can
+// ever be detected (see the broadened query below) -- it's now just the
+// "we already know exactly what this is" fast path. Add a verified sender
+// domain/address here to get a clean name/logo for a new service.
 const KNOWN_SENDERS: { domain: string; serviceName: string; iconKey: string | null }[] = [
   { domain: "netflix.com", serviceName: "Netflix", iconKey: "netflix" },
   { domain: "spotify.com", serviceName: "Spotify", iconKey: "spotify" },
@@ -66,6 +67,151 @@ function guessBillingCycle(text: string): "monthly" | "quarterly" | "yearly" {
   if (/\b(per|\/)\s*year\b|\bannual(ly)?\b|\byearly\b|\beach year\b/.test(t)) return "yearly";
   if (/\b(per|\/)\s*quarter\b|\bquarterly\b|\bevery (3|three) months\b/.test(t)) return "quarterly";
   return "monthly";
+}
+
+// A known sender's own marketing email mentions the service name plenty
+// but isn't proof of an actual subscription or charge -- discovered from
+// real data: a single account had 25 "Spotify" candidates that were a mix
+// of upsell ads ("Get Spotify Premium... 12 months at ₹799") AND completely
+// unrelated tour-announcement newsletters ("Your Fave, On Tour", an artist
+// "hitting the road"), none of them receipts. A blocklist of known-junk
+// phrasing proved insufficient on the very first real account it was
+// tested against (the tour emails weren't anticipated) -- this instead
+// requires POSITIVE evidence the email is actually receipt/confirmation
+// shaped before it's ever added to the review queue at all.
+const RECEIPT_RE =
+  /\b(receipt|invoice|order (id|confirmation|number)|thanks? for your (purchase|order|subscription)|you'?ll find your receipt|payment (successful|received|confirmation)|charged|billed|subscription (confirmed|renewed|active|receipt)|auto-?renew|authoriz\w* .{0,20}to (automatically )?charge)\b/i;
+function looksLikeReceipt(text: string): boolean {
+  return RECEIPT_RE.test(text);
+}
+
+// A much weaker signal than a receipt -- "you signed up" or "you cancelled"
+// proves a service relationship exists (past or present), not that a charge
+// happened. Only ever checked for curated KNOWN_SENDERS, where that alone is
+// still trustworthy enough to surface the service for manual review.
+const LIFECYCLE_RE =
+  /\b(welcome to|thanks? for (joining|signing up)|you'?re (now |all )?set|account (is |has been )?(active|created)|we'?re sorry to see you go|your (membership|account|subscription) has been (cancell?ed|closed))\b/i;
+
+// Overrides the guessed service name/logo for well-known products that are
+// billed through an intermediary whose own sender name says nothing about
+// which app is actually being paid for. Checked against body content, not
+// the sender -- see the gating-vs-naming distinction where this is used.
+const PRODUCT_NAME_HINTS: { pattern: RegExp; serviceName: string; iconKey: string | null }[] = [
+  { pattern: /\bclaude( pro)?\b|\banthropic,?\s*pbc\b/i, serviceName: "Claude", iconKey: null },
+  { pattern: /\bgoogle one\b|\bgoogle ai pro\b/i, serviceName: "Google One (Gemini)", iconKey: null },
+  { pattern: /\byoutube premium\b/i, serviceName: "YouTube Premium", iconKey: null },
+];
+// Google Play's own receipt wording is consistent enough to extract the
+// actual merchant generically ("subscription purchase from BodBot on
+// Google Play") for anything not already covered by PRODUCT_NAME_HINTS
+// above -- otherwise every Play-billed app not on that short list still
+// collapses into one generic "Google Play" bucket.
+const GOOGLE_PLAY_MERCHANT_RE = /\bsubscription\s+(?:purchase\s+)?from\s+([A-Z][\w&.,''\s]{1,40}?)\s+on Google Play\b/i;
+
+// Once the sender allowlist was removed (see the query below), looksLikeReceipt
+// alone stopped being safe: it happily matches Uber ride receipts, Zomato food
+// orders, one-off Amazon purchases and Razorpay donations -- all genuinely
+// receipt-shaped, none of them a subscription. Confirmed against a real
+// inbox (gmail-diagnostic-dump): "order confirmation"/"charged"/"billed"
+// wording shows up constantly in ordinary one-off commerce. This second gate
+// requires actual RECURRING-billing language before something outside the
+// curated KNOWN_SENDERS list is added to the review queue at all.
+//
+// Stripping SUBSCRIPTION_NOISE_RE first matters just as much as the positive
+// pattern: nearly every commercial email has an "unsubscribe" / "manage your
+// email subscription preferences" footer, which contains the literal word
+// "subscription" and would otherwise defeat this gate on its own (confirmed:
+// Uber promo mail, LinkedIn digests and newsletter mail all matched purely
+// on that footer boilerplate before this strip was added).
+const SUBSCRIPTION_NOISE_RE =
+  /\b(email subscription|newsletter subscription|manage (your )?(email )?(communication )?(preferences|subscription)|unsubscribe)\b/gi;
+const SUBSCRIPTION_WORDING_RE =
+  /\b(subscription|subscribed to|membership (fee|renew|active|plan)|recurring (payment|charge|billing)|auto-?renew\w*|renews? (automatically|on|monthly|yearly|annually)|billing cycle|your plan (renews|will renew))\b/i;
+function hasSubscriptionEvidence(text: string): boolean {
+  return SUBSCRIPTION_WORDING_RE.test(text.replace(SUBSCRIPTION_NOISE_RE, " "));
+}
+
+// Multiple emails routinely get matched for the same service -- a real
+// receipt, a "your trial is ending" nudge, a plain upsell ad -- and they are
+// not equally useful. This ranks each one (1 = best) so the review queue can
+// pick the single most informative email per service as its primary card
+// instead of whichever happened to be newest:
+//   1. An actual receipt/confirmation that also has a real amount and/or a
+//      charge date to project the renewal from -- proper subscription
+//      details, not just proof the word "subscription" appeared somewhere.
+//   2. A "redeem"/"claim"/"trial ending"/"payment declined, update now"
+//      email -- proves an active or about-to-lapse subscription, but not a
+//      clean charge record.
+//   3. A "subscribe now"/"join"/"upgrade" invitation -- the weakest signal
+//      that still cleared both gates above, usually upsell copy worded like
+//      a receipt rather than an actual one.
+//   4. Everything else that passed looksLikeReceipt/hasSubscriptionEvidence
+//      but doesn't fit any of the above.
+const REDEEM_RE =
+  /\b(redeem|claim your|trial (will end|ends|ending|expires)|update (your )?payment|payment (declined|failed)|keep (your|the) (benefits|access))\b/i;
+const SUBSCRIBE_INVITE_RE =
+  /\b(subscribe now|get .*(premium|pro)\b|join .*(premium|pro|one)\b|upgrade to|start your (free trial|subscription)|unlock premium|welcome to prime)\b/i;
+function classifyEvidenceTier(text: string, isReceipt: boolean, hasAmount: boolean, hasChargeDate: boolean): number {
+  // isReceipt is required, not just hasAmount/hasChargeDate on their own --
+  // confirmed on a real account: a "Welcome to Netflix"/signup email (only
+  // in the queue at all because of the known-sender lifecycle fallback, see
+  // LIFECYCLE_RE) can still contain a plan-comparison table with real-
+  // looking prices ("Basic ₹149, Standard ₹649..."), which guessAmount()
+  // has no way to tell apart from an actual charge. Without gating on
+  // isReceipt too, that marketing table got tier 1 -- "confident, priced
+  // evidence" -- for a subscription that was never actually billed.
+  if (isReceipt && (hasAmount || hasChargeDate)) return 1;
+  if (REDEEM_RE.test(text)) return 2;
+  if (SUBSCRIBE_INVITE_RE.test(text)) return 3;
+  return 4;
+}
+
+// Same disclaimer as guessAmount/guessBillingCycle -- looks for a date near
+// words like "date"/"charged"/"billed", or a bare ISO date, not a real
+// invoice parser. Finds when THIS receipt's charge happened, not when the
+// NEXT one will -- projectNextRenewal below does that part.
+const MONTH_DAY_YEAR_RE = /\b(?:date|charged|billed)\D{0,10}(\d{1,2})[\/\-\s](\w{3,9})[\/\-\s](\d{2,4})\b/i;
+// Same idea, opposite word order -- "Date September 26, 2026" (month name
+// first) instead of "date 26 September 2026". Confirmed missing on a real
+// receipt (Spotify's own "Item(s) Premium Standard Date September 26, 2026"
+// wording) -- without this, that email's charge date silently never gets
+// found at all, even though it's sitting right there in plain text.
+// [^\w]{0,5}, not \D{0,10} -- \D still matches letters (anything non-digit),
+// so a greedy \D{0,10} here backtracks INTO the month name itself and
+// happily captures "ber" out of "September" instead of the whole word
+// (confirmed by directly testing this exact regex against the real Spotify
+// receipt text -- it produced an Invalid Date). Restricting the gap to
+// non-word characters only (whitespace/colon/etc.) can't eat into a \w word.
+const MONTH_NAME_FIRST_RE = /\b(?:date|charged|billed)[^\w]{0,5}(\w{3,9})\s+(\d{1,2}),?\s+(\d{2,4})\b/i;
+const ISO_DATE_RE = /\b(\d{4})-(\d{2})-(\d{2})\b/;
+function guessChargeDate(text: string): Date | null {
+  const monthDayMatch = text.match(MONTH_DAY_YEAR_RE);
+  if (monthDayMatch) {
+    const parsed = new Date(`${monthDayMatch[2]} ${monthDayMatch[1]}, ${monthDayMatch[3]}`);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  const monthNameFirstMatch = text.match(MONTH_NAME_FIRST_RE);
+  if (monthNameFirstMatch) {
+    const parsed = new Date(`${monthNameFirstMatch[1]} ${monthNameFirstMatch[2]}, ${monthNameFirstMatch[3]}`);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  const isoMatch = text.match(ISO_DATE_RE);
+  if (isoMatch) {
+    const parsed = new Date(isoMatch[0]);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+// Rolls a known-past charge date forward by the billing cycle until it's in
+// the future -- a July 25 monthly charge found by a scan in September
+// becomes "next renewal ~Sept 25", not the date the email itself was sent.
+function projectNextRenewal(chargeDate: Date, cycle: "monthly" | "quarterly" | "yearly"): string {
+  const monthsPerCycle = { monthly: 1, quarterly: 3, yearly: 12 }[cycle];
+  const next = new Date(chargeDate);
+  const today = new Date();
+  while (next <= today) next.setMonth(next.getMonth() + monthsPerCycle);
+  return next.toISOString().slice(0, 10);
 }
 
 // Gmail's message payload is a tree (multipart/alternative wrapping a
@@ -213,30 +359,68 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id);
     }
 
-    if (KNOWN_SENDERS.length === 0) {
-      console.log("gmail-scan-subscriptions: KNOWN_SENDERS is empty, nothing to search for");
-      return new Response(JSON.stringify({ scanned: 0, detected: 0 }), { headers: corsHeaders });
-    }
+    // No longer restricted to KNOWN_SENDERS -- that was a hard ceiling: a
+    // real subscription (confirmed via a diagnostic run: Claude Pro via
+    // Google Play, ₹1999/mo) was invisible purely because its domain wasn't
+    // on the curated list. category:purchases is Gmail's own "Purchases" tab
+    // classifier; the keyword OR-list catches receipt-flavored mail Gmail
+    // didn't tag that way. 180d (not 90d) so a once-a-year renewal still has
+    // a chance to be inside the window. maxResults/pagination is capped at
+    // MAX_MESSAGES total -- a diagnostic run against a real, busy inbox with
+    // no cap started hitting Gmail API rate limits and taking minutes, which
+    // a real scan (triggered synchronously from the app, one HTTP request)
+    // can't afford.
+    //
+    // NOISY_NON_SUBSCRIPTION_DOMAINS is a second finding from that same
+    // diagnostic: on a real, busy inbox, ride-hailing/food-delivery/generic
+    // e-commerce/payment-gateway-donation mail (Uber, Zomato, Amazon,
+    // Swiggy, BigBasket, Instamart, Razorpay) alone made up ~30% of every
+    // candidate matched -- almost none of it a subscription (Uber's own
+    // "Uber One" marketing emails were the one exception, and even those
+    // turned out to be upsell ads, not receipts). On an account with heavy
+    // day-to-day transaction volume, that noise was crowding a genuinely
+    // older subscription receipt (a once-yearly renewal) out of the
+    // MAX_MESSAGES budget entirely. Excluding them frees that budget for
+    // mail that's actually likely to be a subscription. A curated sender can
+    // never be excluded by this (domainClause below ORs it back in
+    // unconditionally), and nothing stops a legitimate subscription charge
+    // that happens to route through Razorpay/etc. from still being found if
+    // it's worded distinctly enough to not need this budget at all.
+    const NOISY_NON_SUBSCRIPTION_DOMAINS = [
+      "uber.com",
+      "zomato.com",
+      "swiggy.in",
+      "amazon.in",
+      "amazon.com",
+      "bigbasket.com",
+      "instamart.in",
+      "razorpay.com",
+      "redditmail.com",
+    ];
+    const domainClause = KNOWN_SENDERS.map((s) => `from:${s.domain}`).join(" OR ");
+    const exclusionClause = NOISY_NON_SUBSCRIPTION_DOMAINS.map((d) => `-from:${d}`).join(" ");
+    const query =
+      `newer_than:180d ((${domainClause}) OR category:purchases OR subscription OR "auto-renew" OR renewal OR membership OR recurring OR receipt OR invoice OR billed OR charged) ${exclusionClause}`;
+    const MAX_MESSAGES = 200;
 
-    // Only mail from these exact known senders is ever looked at -- not a
-    // subject-keyword search across the whole inbox.
-    const query = `newer_than:90d (${KNOWN_SENDERS.map((s) => `from:${s.domain}`).join(" OR ")})`;
-    const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-    listUrl.searchParams.set("q", query);
-    // Gmail returns matches newest-first -- 25 was too easy to crowd out
-    // with promotional mail from a known sender (e.g. many ChatGPT
-    // marketing emails burying an actual older Spotify receipt past
-    // position 25, so it was never looked at again by any rescan).
-    listUrl.searchParams.set("maxResults", "100");
+    let pageToken: string | undefined;
+    const messageIds: string[] = [];
+    do {
+      const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+      listUrl.searchParams.set("q", query);
+      listUrl.searchParams.set("maxResults", "100");
+      if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
 
-    const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const listData = await listRes.json();
-    if (!listRes.ok) {
-      console.error("gmail-scan-subscriptions: Gmail list failed", listData);
-      return new Response(JSON.stringify({ error: "Gmail search failed", details: listData }), { status: 502, headers: corsHeaders });
-    }
+      const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const listData = await listRes.json();
+      if (!listRes.ok) {
+        console.error("gmail-scan-subscriptions: Gmail list failed", listData);
+        return new Response(JSON.stringify({ error: "Gmail search failed", details: listData }), { status: 502, headers: corsHeaders });
+      }
+      messageIds.push(...(listData.messages ?? []).map((m: { id: string }) => m.id));
+      pageToken = listData.nextPageToken;
+    } while (pageToken && messageIds.length < MAX_MESSAGES);
 
-    const messageIds: string[] = (listData.messages ?? []).map((m: { id: string }) => m.id);
     console.log("gmail-scan-subscriptions: found", messageIds.length, "candidate messages");
 
     let detectedCount = 0;
@@ -260,24 +444,75 @@ Deno.serve(async (req) => {
       // on some real receipts, well before the actual charge line.
       const bodyText = extractBodyText(msg.payload).slice(0, 20000);
 
-      const { domain } = parseFromHeader(from);
-      // The service name/logo come from the matched entry, not from
-      // parsing the email's display name -- that's what produced a
-      // person's name instead of a real service before.
+      const { name: parsedName, domain } = parseFromHeader(from);
+      const combinedText = `${subject} ${bodyText || snippet}`;
+
+      // Known senders keep their curated display name/logo, same as before.
+      // A domain lookup is only correct when the sender domain BELONGS to
+      // the service (netflix.com is genuinely Netflix) -- it breaks down for
+      // a billing intermediary like Google Play, where the sender is always
+      // "Google Play" regardless of which actual app is being paid for.
+      // Confirmed on a real account: Claude Pro, Google One, and an
+      // unrelated fitness app (BodBot) were all silently merged into one
+      // "Google Play" bucket and approved as a single wrong subscription.
+      // PRODUCT_NAME_HINTS catches the well-known cases by body content
+      // first; GOOGLE_PLAY_MERCHANT_RE generically extracts "X" from "...
+      // from X on Google Play" wording for anything else routed through
+      // Google Play specifically. Neither touches the receipt/subscription
+      // GATING below -- that still depends only on the real sender domain,
+      // or an Uber email that happens to namedrop "Claude" in passing could
+      // start getting treated as a trusted curated sender.
+      const productHint = PRODUCT_NAME_HINTS.find((h) => h.pattern.test(combinedText));
+      const merchantMatch = combinedText.match(GOOGLE_PLAY_MERCHANT_RE);
       const known = KNOWN_SENDERS.find((s) => domain === s.domain || domain.endsWith(`.${s.domain}`));
-      if (!known) {
-        console.warn("gmail-scan-subscriptions: message matched query but no known sender for domain", domain);
+      const serviceName = productHint?.serviceName ?? merchantMatch?.[1]?.trim() ?? known?.serviceName ?? parsedName;
+      const iconKey = productHint?.iconKey ?? known?.iconKey ?? null;
+
+      const isReceipt = looksLikeReceipt(combinedText);
+      // Curated senders are a known, trusted, short list of actual
+      // subscription services (not marketplaces) -- for THEM ONLY, a
+      // signup/welcome or cancellation email is also enough to at least
+      // list the service for manual confirmation, even with no receipt
+      // language at all. Found on a real account with zero receipt emails
+      // for a service the user is definitely paying for (Netflix -- 17
+      // matched emails there were all sign-in codes, content
+      // recommendations, and a "Welcome to Netflix" signup email; not one
+      // was receipt-shaped) -- without this, a real, known subscription
+      // stays permanently invisible to the scanner just because its
+      // provider's receipts don't happen to land in this inbox. The price
+      // still isn't guessed from these (no receipt = no guessedAmount), so
+      // the user types it in when approving, same as any other blank-price
+      // candidate already does.
+      const isKnownServiceLifecycleSignal = !!known && LIFECYCLE_RE.test(combinedText);
+      if (!isReceipt && !isKnownServiceLifecycleSignal) {
+        console.log("gmail-scan-subscriptions: skipping non-receipt email from", serviceName);
         continue;
       }
-
-      const combinedText = `${subject} ${bodyText || snippet}`;
-      const guessedMoney = guessAmount(combinedText);
+      // Everything NOT on the curated list still needs actual
+      // subscription/recurring wording on top of receipt evidence, or Uber
+      // rides, Zomato orders, Amazon purchases and Razorpay donations all
+      // flood in too (every one of them is receipt-shaped).
+      if (!known && !hasSubscriptionEvidence(combinedText)) {
+        console.log("gmail-scan-subscriptions: skipping one-off receipt (no subscription wording) from", serviceName);
+        continue;
+      }
+      // A price/date found in a non-receipt email (only in the queue at all
+      // via the known-sender LIFECYCLE_RE fallback) is not trustworthy --
+      // confirmed on a real account: a "Welcome to Netflix" signup email's
+      // plan-comparison table ("Basic ₹149, Standard ₹649...") produced a
+      // confident-looking ₹649 guess for a subscription that was never
+      // actually billed. Only ever extract amount/date from something that
+      // actually reads like a receipt.
+      const guessedMoney = isReceipt ? guessAmount(combinedText) : null;
       const guessedCycle = guessBillingCycle(combinedText);
+      const chargeDate = isReceipt ? guessChargeDate(combinedText) : null;
       const guessFields = {
         guessed_amount: guessedMoney?.amount ?? null,
         guessed_currency: guessedMoney?.currency ?? "USD",
         guessed_billing_cycle: guessedCycle,
+        guessed_next_renewal_date: chargeDate ? projectNextRenewal(chargeDate, guessedCycle) : null,
         source_snippet: snippet.slice(0, 300),
+        evidence_tier: classifyEvidenceTier(combinedText, isReceipt, guessedMoney != null, chargeDate != null),
       };
 
       // A plain upsert would either skip every rescan of an already-seen
@@ -297,8 +532,8 @@ Deno.serve(async (req) => {
       if (!existingCandidate) {
         const { error: insertError } = await supabaseAdmin.from("detected_subscriptions").insert({
           user_id: user.id,
-          service_name: known.serviceName,
-          icon_key: known.iconKey,
+          service_name: serviceName,
+          icon_key: iconKey,
           gmail_message_id: id,
           status: "pending",
           ...guessFields,

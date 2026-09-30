@@ -4,6 +4,7 @@ import { Link, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useThemeColors } from "@/hooks/useThemeColors";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -136,14 +137,10 @@ const SignUp = () => {
           <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={colors.onSurfaceVariant} />
         </Pressable>
       </View>
-      <TextInput
-        placeholder="Phone number (optional -- links your profiles)"
-        placeholderTextColor={colors.onSurfaceVariant}
-        keyboardType="phone-pad"
-        autoComplete="tel"
+      <PhoneNumberField
         value={phoneNumber}
         onChangeText={setPhoneNumber}
-        className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
+        placeholder="Phone number (optional -- links your profiles)"
       />
 
       {error ? <Text className="font-sans text-error">{error}</Text> : null}
@@ -161,8 +158,11 @@ const SignUp = () => {
         )}
       </TouchableOpacity>
 
-      <Link href="/(auth)/sign-in" className="text-center font-sans text-primary">
-        Already have an account? Sign In
+      {/* See sign-in.tsx's matching link -- color goes on the inner <Text>,
+          not Link's own className, which doesn't reliably style text color
+          on native. */}
+      <Link href="/(auth)/sign-in" className="text-center">
+        <Text className="font-sans text-primary">Already have an account? Sign In</Text>
       </Link>
     </View>
   );

@@ -8,6 +8,7 @@ import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
 import { useProfile } from "@/hooks/useProfile";
 import { useThemeColors } from "@/hooks/useThemeColors";
 import { SubscriptionRow } from "@/components/SubscriptionRow";
+import { DetectedSubscriptionsPrompt } from "@/components/DetectedSubscriptionsPrompt";
 import { totalMonthlySpend } from "@/lib/subscriptionMath";
 import { formatMoney } from "@/lib/currency";
 
@@ -62,6 +63,7 @@ const Subscriptions = () => {
             <Text className="font-sans text-sm text-on-surface-variant">
               {formatMoney(totalMonthlySpend(subscriptions, homeCurrency), homeCurrency)}/mo total
             </Text>
+            <DetectedSubscriptionsPrompt />
           </View>
         }
         ListEmptyComponent={

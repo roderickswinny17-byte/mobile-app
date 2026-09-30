@@ -9,13 +9,26 @@ import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
 import { useThemeColors } from "@/hooks/useThemeColors";
 import { SubscriptionRow } from "@/components/SubscriptionRow";
 import { AppIcon } from "@/components/AppIcon";
+import { BleedingSection } from "@/components/BleedingSection";
+import { RenewalReminderBanner } from "@/components/RenewalReminderBanner";
+import { RenewalBell } from "@/components/RenewalBell";
 import { formatMoney } from "@/lib/currency";
+import { computeBleedScore } from "@/lib/bleedScore";
 
 const Home = () => {
   const panGesture = useSwipeTabNavigation();
   const { profile, loading: profileLoading } = useProfile();
   const { subscriptions, loading, error, reload } = useTrackedSubscriptions();
   const colors = useThemeColors();
+
+  const bleeding = subscriptions.filter(
+    (sub) =>
+      computeBleedScore({
+        lastViewedAt: sub.last_viewed_at,
+        createdAt: sub.created_at,
+        monthlyCost: sub.monthly_cost,
+      }).tier === "bleeding"
+  );
 
   // Tab screens stay mounted when navigating to the Add Subscription modal
   // and back, so the list needs an explicit refresh on refocus rather than
@@ -50,13 +63,18 @@ const Home = () => {
                   {profile?.first_name ?? ""}
                 </Text>
               </View>
-              <Pressable
-                onPress={() => router.push("/subscriptions/add")}
-                className="h-10 w-10 items-center justify-center rounded-full bg-on-background active:opacity-80"
-              >
-                <Ionicons name="add" size={22} color={colors.background} />
-              </Pressable>
+              <View className="flex-row items-center gap-2">
+                <RenewalBell subscriptions={subscriptions} />
+                <Pressable
+                  onPress={() => router.push("/subscriptions/add")}
+                  className="h-10 w-10 items-center justify-center rounded-full bg-on-background active:opacity-80"
+                >
+                  <Ionicons name="add" size={22} color={colors.background} />
+                </Pressable>
+              </View>
             </View>
+
+            <RenewalReminderBanner subscriptions={subscriptions} />
 
             <View className="gap-3">
               <View className="flex-row items-center justify-between">
@@ -92,6 +110,8 @@ const Home = () => {
                 </ScrollView>
               )}
             </View>
+
+            <BleedingSection bleeding={bleeding} />
 
             <View className="flex-row items-center justify-between">
               <Text className="font-display-medium text-xl text-on-background">

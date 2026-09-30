@@ -27,6 +27,15 @@ export function useThemePreference() {
       if (saved === "dark" || saved === "light") {
         applyScheme(saved);
         setScheme(saved);
+      } else {
+        // No saved preference yet (first launch) -- explicitly force light.
+        // Appearance.setColorScheme is what actually decides which `dark:`
+        // variant NativeWind applies; the `scheme` state above is only used
+        // for this hook's own return value/toggle UI, so leaving this branch
+        // empty meant a device with the OS set to dark rendered the app in
+        // dark mode on first launch despite the "always starts light" intent
+        // described above.
+        applyScheme("light");
       }
     });
   }, []);

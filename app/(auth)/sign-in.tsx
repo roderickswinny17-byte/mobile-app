@@ -101,8 +101,13 @@ const SignIn = () => {
         )}
       </TouchableOpacity>
 
-      <Link href="/(auth)/sign-up" className="text-center font-sans text-primary">
-        Don&apos;t have an account? Create Account
+      {/* Text color goes on the inner <Text>, not Link's own className --
+          Link doesn't reliably apply color styling to its text on native, so
+          this rendered with RN's default (black) text color regardless of
+          theme: legible by coincidence on the light background, invisible
+          against the dark one. */}
+      <Link href="/(auth)/sign-up" className="text-center">
+        <Text className="font-sans text-primary">Don&apos;t have an account? Create Account</Text>
       </Link>
     </View>
   );

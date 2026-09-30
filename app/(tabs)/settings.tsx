@@ -9,22 +9,30 @@ import { useProfile } from "@/hooks/useProfile";
 import { useLinkedProfiles } from "@/hooks/useLinkedProfiles";
 import { useAccountSwitcher } from "@/hooks/useAccountSwitcher";
 import { useEmailConnection } from "@/hooks/useEmailConnection";
-import { useSubscription } from "@/hooks/useSubscription";
+// import { useSubscription } from "@/hooks/useSubscription"; -- postponed with the "More Subscription Plans" section, see below
+import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useThemeColors } from "@/hooks/useThemeColors";
 import { supabase } from "@/lib/supabase";
 import { removeCachedAccount } from "@/lib/accountSessions";
 import { CURRENCIES } from "@/lib/currency";
+import { computeBleedScore } from "@/lib/bleedScore";
+import { BleedIcon } from "@/components/BleedIcon";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 
-const PLANS = [
-  {
-    id: "subscription-a",
-    name: "Subscription A",
-    monthlyPrice: 9.99,
-    yearlyPrice: 99,
-    perks: ["Unlimited entries", "Priority support", "Early access to new features"],
-  },
-] as const;
+// Postponed, not removed -- this app's own "More Subscription Plans" upsell
+// (below, and its PLANS data here) is commented out for now. Un-comment this
+// block plus the matching JSX section and the useSubscription()/cycle state
+// further down to bring it back.
+// const PLANS = [
+//   {
+//     id: "subscription-a",
+//     name: "Subscription A",
+//     monthlyPrice: 9.99,
+//     yearlyPrice: 99,
+//     perks: ["Unlimited entries", "Priority support", "Early access to new features"],
+//   },
+// ] as const;
 
 const Settings = () => {
   const panGesture = useSwipeTabNavigation();
@@ -32,9 +40,22 @@ const Settings = () => {
   const { profiles: linkedProfiles, loading: linkedLoading, error: linkedError } = useLinkedProfiles();
   const { cachedAccounts, switching, switchTo } = useAccountSwitcher();
   const emailConnection = useEmailConnection();
-  const { subscription, loading: planLoading } = useSubscription();
+  // const { subscription, loading: planLoading } = useSubscription(); -- see PLANS above
   const { isDark, setThemePreference, supported: darkModeSupported } = useThemePreference();
   const colors = useThemeColors();
+  const { subscriptions: trackedSubs } = useTrackedSubscriptions();
+
+  // Persistent entry point to Bleed -- unlike the Home banner (which only
+  // appears once something's fully "bleeding"), this is always visible so
+  // "leaking" subscriptions are checkable before they get that bad.
+  const notHealthyCount = trackedSubs.filter(
+    (sub) =>
+      computeBleedScore({
+        lastViewedAt: sub.last_viewed_at,
+        createdAt: sub.created_at,
+        monthlyCost: sub.monthly_cost,
+      }).tier !== "healthy"
+  ).length;
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -42,7 +63,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
+  // const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly"); -- see PLANS above
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsOn, setNotificationsOn] = useState(true);
 
@@ -54,7 +75,7 @@ const Settings = () => {
     setPhoneNumber(profile.phone_number ?? "");
   }
 
-  const currentPlan = subscription?.plan ?? "Normal";
+  // const currentPlan = subscription?.plan ?? "Normal"; -- see PLANS above
 
   const handleSave = async () => {
     if (!profile) return;
@@ -87,7 +108,14 @@ const Settings = () => {
 
   const handleSetHomeCurrency = async (code: string) => {
     if (!profile || code === profile.home_currency) return;
-    await supabase.from("profiles").update({ home_currency: code }).eq("id", profile.id);
+    // home_currency_auto: false permanently -- an explicit pick here must
+    // never get silently overwritten later by the phone-number-based
+    // inference in useProfile, e.g. if the person edits their phone number
+    // afterward for an unrelated reason.
+    await supabase
+      .from("profiles")
+      .update({ home_currency: code, home_currency_auto: false })
+      .eq("id", profile.id);
     reload();
   };
 
@@ -179,15 +207,7 @@ const Settings = () => {
               onChangeText={setLastName}
               className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
             />
-            <TextInput
-              placeholder="Phone number"
-              placeholderTextColor={colors.onSurfaceVariant}
-              keyboardType="phone-pad"
-              autoComplete="tel"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              className="rounded-lg border border-outline-variant bg-surface-container px-4 py-3 font-sans text-on-surface"
-            />
+            <PhoneNumberField value={phoneNumber} onChangeText={setPhoneNumber} placeholder="Phone number" />
 
             {saveError ? <Text className="font-sans text-error">{saveError}</Text> : null}
             {saved ? <Text className="font-sans text-primary">Saved.</Text> : null}
@@ -205,14 +225,35 @@ const Settings = () => {
             </Pressable>
           </View>
 
+          <Pressable
+            onPress={() => router.push("/subscriptions/bleed")}
+            className="flex-row items-center gap-3 rounded-lg border border-outline-variant bg-surface-container p-4"
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/15">
+              <BleedIcon size={22} />
+            </View>
+            <View className="flex-1">
+              <Text className="font-display-medium text-base text-on-background">Bleed</Text>
+              <Text className="font-sans text-xs text-on-surface-variant">
+                {notHealthyCount > 0
+                  ? `${notHealthyCount} subscription${notHealthyCount > 1 ? "s" : ""} you haven't opened in a while`
+                  : "You're paying for things you forgot exist."}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+          </Pressable>
+
           <View className="mt-2 h-px bg-outline-variant" />
 
+          {/* "More Subscription Plans" (this app's own upsell) postponed for
+              now, not removed -- un-comment this along with PLANS/cycle/
+              currentPlan/useSubscription() above to bring it back.
           <View className="gap-1">
             <Text className="font-display-medium text-lg text-on-background">
               More Subscription Plans
             </Text>
             <Text className="font-sans text-sm text-on-surface-variant">
-              This app&apos;s own plan -- separate from the subscriptions you&apos;re tracking.
+              This app's own plan -- separate from the subscriptions you're tracking.
             </Text>
           </View>
 
@@ -281,8 +322,7 @@ const Settings = () => {
               </Pressable>
             </View>
           ))}
-
-          <View className="mt-2 h-px bg-outline-variant" />
+          */}
 
           <Text className="font-display-medium text-lg text-on-background">Find Subscriptions</Text>
           <Text className="-mt-2 font-sans text-sm text-on-surface-variant">

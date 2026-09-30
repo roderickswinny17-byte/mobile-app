@@ -107,6 +107,14 @@ alter table public.profiles add column if not exists phone_number text;
 -- tracked_subscriptions keep whatever currency they're actually billed in;
 -- this is only the unit everything gets converted into for aggregate views.
 alter table public.profiles add column if not exists home_currency text not null default 'USD';
+-- True until the user explicitly picks a currency in Settings (see
+-- handleSetHomeCurrency) -- while true, useProfile is free to auto-correct
+-- home_currency from the phone number's country code (lib/phoneCurrency.ts)
+-- instead of leaving it at the 'USD' default for anyone who never happens
+-- to bill in dollars. Flips to false permanently on any explicit choice, so
+-- a later phone-number edit can never silently override what the user
+-- picked themselves.
+alter table public.profiles add column if not exists home_currency_auto boolean not null default true;
 
 -- The app dropped its mood/music-player feature -- this app is a
 -- subscription tracker now. Drops the table for anyone re-running this
@@ -141,6 +149,19 @@ alter table public.tracked_subscriptions add column if not exists hex text not n
 -- Where Pause/Change Plan/Cancel actually send the user -- see
 -- lib/subscriptionCatalog.ts for why (no real billing API access).
 alter table public.tracked_subscriptions add column if not exists billing_url text;
+-- Bumped whenever the subscription's detail screen is opened -- the only
+-- honest "did you still care about this" signal available (see
+-- lib/bleedScore.ts), since the app has no way to know whether the
+-- underlying service itself was actually used.
+alter table public.tracked_subscriptions add column if not exists last_viewed_at timestamptz;
+-- Defaults true because virtually every real subscription auto-renews by
+-- default until someone manually turns it off -- there's no API access to
+-- Netflix/Spotify/etc. to actually check this, so the app assumes the
+-- industry-standard default rather than pretending to have live data.
+-- Flips to false only when the user confirms they've disabled it themselves
+-- via the provider's own billing page (see the Autopay section on the
+-- subscription detail screen).
+alter table public.tracked_subscriptions add column if not exists autopay_enabled boolean not null default true;
 
 -- Existing rows predate the 'quarterly' option -- re-add the check
 -- constraint to allow it (can't just widen an existing check in place).
@@ -338,6 +359,19 @@ create table if not exists public.detected_subscriptions (
 -- yearly) -- previously every Gmail-approved subscription was hardcoded to
 -- "monthly" regardless of what the receipt actually said.
 alter table public.detected_subscriptions add column if not exists guessed_billing_cycle text not null default 'monthly';
+-- The charge date found in the receipt, rolled forward to the next future
+-- occurrence -- see gmail-scan-subscriptions' guessChargeDate/
+-- projectNextRenewal. Null when no date could be found in the email; the
+-- 2-business-day renewal reminder (lib/businessDays.ts) simply has nothing
+-- to compute for that subscription until one is set (via this or manually).
+alter table public.detected_subscriptions add column if not exists guessed_next_renewal_date date;
+-- How informative this specific email actually is, 1 (best) to 4 (weakest)
+-- -- see classifyEvidenceTier in gmail-scan-subscriptions. Several emails
+-- routinely get detected for the same service (a receipt, a trial-ending
+-- notice, an upsell ad); the review queue groups them into one card and
+-- uses this to pick the most useful one as the primary representative
+-- instead of just whichever was newest.
+alter table public.detected_subscriptions add column if not exists evidence_tier smallint not null default 4;
 alter table public.detected_subscriptions enable row level security;
 
 drop policy if exists "Users manage their own detected subscriptions" on public.detected_subscriptions;

@@ -1,9 +1,11 @@
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { AppIcon } from "@/components/AppIcon";
+import { BleedIcon } from "@/components/BleedIcon";
 import type { TrackedSubscription } from "@/hooks/useTrackedSubscriptions";
 import { formatMoney } from "@/lib/currency";
 import { billingCycleLabel } from "@/lib/subscriptionMath";
+import { computeBleedScore } from "@/lib/bleedScore";
 
 // Matches design-preview/subscriptions-reference.html's colored rows
 // (sub.hex) exactly. That background is always a light pastel regardless of
@@ -12,6 +14,12 @@ import { billingCycleLabel } from "@/lib/subscriptionMath";
 // mode and would go nearly invisible on these tiles) so it reads correctly
 // in both themes.
 export function SubscriptionRow({ sub }: { sub: TrackedSubscription }) {
+  const { tier, daysSinceLastViewed } = computeBleedScore({
+    lastViewedAt: sub.last_viewed_at,
+    createdAt: sub.created_at,
+    monthlyCost: sub.monthly_cost,
+  });
+
   return (
     <Pressable
       onPress={() => router.push(`/subscriptions/${sub.id}`)}
@@ -22,10 +30,18 @@ export function SubscriptionRow({ sub }: { sub: TrackedSubscription }) {
         <View className="h-11 w-11 items-center justify-center rounded-xl bg-white p-2">
           <AppIcon iconKey={sub.icon_key} name={sub.service_name} size={26} />
         </View>
-        <View>
-          <Text className="font-sans-bold text-sm" style={{ color: "#1E1B16" }}>
-            {sub.service_name}
-          </Text>
+        <View className="gap-1">
+          <View className="flex-row items-center gap-1.5">
+            <Text className="font-sans-bold text-sm" style={{ color: "#1E1B16" }}>
+              {sub.service_name}
+            </Text>
+            {tier === "bleeding" ? (
+              <View className="flex-row items-center gap-1 rounded-full bg-error px-1.5 py-0.5">
+                <BleedIcon size={10} color="#FFFFFF" />
+                <Text className="font-sans-bold text-[9px] text-white">{daysSinceLastViewed}d</Text>
+              </View>
+            ) : null}
+          </View>
           <Text className="font-sans text-xs" style={{ color: "#1E1B1699" }}>
             {sub.category ? `${sub.category} · ` : ""}
             {sub.billing_cycle}

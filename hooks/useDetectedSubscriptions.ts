@@ -10,8 +10,14 @@ export type DetectedSubscription = {
   guessed_amount: number | null;
   guessed_currency: string;
   guessed_billing_cycle: "monthly" | "quarterly" | "yearly";
+  guessed_next_renewal_date: string | null;
   source_snippet: string | null;
   detected_at: string;
+  // 1 (best) to 4 (weakest) -- see classifyEvidenceTier in
+  // gmail-scan-subscriptions. 1 = an actual receipt with a real amount/charge
+  // date, 2 = a redeem/claim/trial-ending nudge, 3 = a subscribe/upgrade
+  // invitation, 4 = anything else that still cleared the detection gates.
+  evidence_tier: number;
 };
 
 // Candidates gmail-scan-subscriptions found, awaiting a yes/no from the
@@ -33,7 +39,7 @@ export function useDetectedSubscriptions() {
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from("detected_subscriptions")
-      .select("id, service_name, icon_key, guessed_amount, guessed_currency, guessed_billing_cycle, source_snippet, detected_at")
+      .select("id, service_name, icon_key, guessed_amount, guessed_currency, guessed_billing_cycle, guessed_next_renewal_date, source_snippet, detected_at, evidence_tier")
       .eq("status", "pending")
       .order("detected_at", { ascending: false });
     if (fetchError) {
@@ -41,17 +47,19 @@ export function useDetectedSubscriptions() {
       setError(fetchError.message);
     } else {
       setError(null);
-      // A found price means "we can see you're actually being charged for
-      // this" -- those sort first so you review the confident detections
-      // before the ones that need you to fill in a price manually. Newest
-      // first within each group.
+      // Best evidence first: a real receipt (tier 1) before a redeem/claim
+      // nudge (tier 2) before a bare subscribe invitation (tier 3/4) -- see
+      // evidence_tier's definition. A found price is the tiebreaker within a
+      // tier, then newest first (the query above already ordered by
+      // detected_at, and JS sort is stable, so ties just keep that order).
       const sorted = [...(data ?? [])].sort((a, b) => {
+        if (a.evidence_tier !== b.evidence_tier) return a.evidence_tier - b.evidence_tier;
         const aHasAmount = a.guessed_amount != null ? 0 : 1;
         const bHasAmount = b.guessed_amount != null ? 0 : 1;
         return aHasAmount - bHasAmount;
       });
       // Group by service name (case-insensitive) -- Map preserves insertion
-      // order, so groups inherit the same "priced first" ordering as items.
+      // order, so groups inherit the same tier-then-priced ordering as items.
       const byService = new Map<string, DetectedGroup>();
       for (const item of sorted) {
         const key = item.service_name.trim().toLowerCase();
@@ -59,7 +67,25 @@ export function useDetectedSubscriptions() {
         if (existingGroup) existingGroup.push(item);
         else byService.set(key, [item]);
       }
-      setGroups([...byService.values()]);
+      // The single best-tier email rarely has every field on its own (e.g.
+      // the clearest receipt has the amount but an older email for the same
+      // service has the renewal date) -- fill group[0]'s gaps from the rest
+      // of the group so the one card shown actually carries the fullest
+      // picture, not just whatever happened to be on the top-ranked email.
+      const merged = [...byService.values()].map((group) => {
+        const best = group[0];
+        const primary: DetectedSubscription = {
+          ...best,
+          guessed_amount: best.guessed_amount ?? group.find((g) => g.guessed_amount != null)?.guessed_amount ?? null,
+          guessed_next_renewal_date:
+            best.guessed_next_renewal_date ??
+            group.find((g) => g.guessed_next_renewal_date != null)?.guessed_next_renewal_date ??
+            null,
+          icon_key: best.icon_key ?? group.find((g) => g.icon_key != null)?.icon_key ?? null,
+        };
+        return [primary, ...group.slice(1)];
+      });
+      setGroups(merged);
     }
     setLoading(false);
   }, []);
@@ -125,7 +151,11 @@ export function useDetectedSubscriptions() {
         monthly_cost: price, // confirmed/entered on the review card, not the raw guess
         currency, // confirmed/entered on the review card, not just the raw guess
         billing_cycle: billingCycle, // confirmed/entered on the review card, not just the raw guess
-        next_renewal_date: null,
+        // Best-guess from the receipt's own charge date, rolled forward to
+        // the next occurrence -- was unconditionally null before, which is
+        // why the renewal reminder had nothing to work with for any
+        // Gmail-approved subscription.
+        next_renewal_date: primary.guessed_next_renewal_date,
         category: null,
         icon_key: primary.icon_key,
         hex: "#DCD3F3",

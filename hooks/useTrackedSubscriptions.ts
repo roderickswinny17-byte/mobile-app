@@ -13,10 +13,13 @@ export type TrackedSubscription = {
   icon_key: string | null;
   hex: string;
   billing_url: string | null;
+  last_viewed_at: string | null;
+  created_at: string;
+  autopay_enabled: boolean;
 };
 
 const COLUMNS =
-  "id, service_name, monthly_cost, currency, billing_cycle, next_renewal_date, category, icon_key, hex, billing_url";
+  "id, service_name, monthly_cost, currency, billing_cycle, next_renewal_date, category, icon_key, hex, billing_url, last_viewed_at, created_at, autopay_enabled";
 
 export function useTrackedSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<TrackedSubscription[]>([]);
@@ -52,7 +55,9 @@ export function useTrackedSubscriptions() {
     }, [load])
   );
 
-  const addSubscription = async (input: Omit<TrackedSubscription, "id">) => {
+  const addSubscription = async (
+    input: Omit<TrackedSubscription, "id" | "created_at" | "last_viewed_at" | "autopay_enabled">
+  ) => {
     // getSession() reads the already-validated local session (no network
     // round trip); getUser() re-verifies the JWT against Supabase's Auth
     // server on every call, which is unnecessary here since RLS
