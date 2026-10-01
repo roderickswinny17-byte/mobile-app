@@ -68,10 +68,34 @@ export function makeFreeformApp(query: string): CatalogApp {
     cycle: "monthly",
     trialDays: 7,
     hex: "#DCD3F3",
-    // Best guess only -- we don't know this company's real account-page
-    // path, just their likely homepage domain.
-    billingUrl: `https://${guessDomainForBilling(name)}`,
+    billingUrl: resolveBillingUrl(name),
   };
+}
+
+// Services that show up through Gmail auto-detection or a freeform "Add it
+// anyway" but aren't in CATALOG_APPS, and whose real account/billing page
+// doesn't live at "<nameguess>.com" -- the blind domain-guess fallback
+// below sent these to the wrong (or a dead) page. Google One's own domain
+// is google.com, but its actual membership page is at one.google.com, not
+// a name-derived guess; ElevenLabs' real domain is elevenlabs.io, not the
+// .com the guess always assumes.
+const KNOWN_BILLING_URLS: { match: RegExp; url: string }[] = [
+  { match: /google one|google ai pro/i, url: "https://one.google.com/settings" },
+  { match: /elevenlabs|eleven labs/i, url: "https://elevenlabs.io/app/subscription" },
+];
+
+// Resolves a service name to its real billing/account page, in order of
+// trustworthiness: CATALOG_APPS' curated entries, then the overrides above
+// for known-wrong domain guesses, then the best-effort guess as a last
+// resort for anything genuinely unknown.
+export function resolveBillingUrl(serviceName: string): string {
+  const catalogMatch = CATALOG_APPS.find((a) => a.name.toLowerCase() === serviceName.toLowerCase());
+  if (catalogMatch) return catalogMatch.billingUrl;
+
+  const known = KNOWN_BILLING_URLS.find((k) => k.match.test(serviceName));
+  if (known) return known.url;
+
+  return `https://${guessDomainForBilling(serviceName)}`;
 }
 
 function guessDomainForBilling(name: string): string {

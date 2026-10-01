@@ -129,6 +129,42 @@ alter table public.profiles add column if not exists security_answer_hash text;
 alter table public.profiles add column if not exists reset_failed_attempts int not null default 0;
 alter table public.profiles add column if not exists reset_locked_until timestamptz;
 
+-- Profile picture. Holds the public Storage URL (with a cache-busting
+-- ?t= query param appended on every re-upload -- the storage path itself
+-- stays fixed per user, so without that the CDN/Image component would keep
+-- showing the old photo after a user updates it), not image bytes.
+alter table public.profiles add column if not exists avatar_url text;
+
+-- "avatars" bucket: one file per user at "<user id>/avatar.<ext>". Public
+-- read (profile pictures aren't sensitive and need to load without an
+-- authenticated request from every screen that shows one), but write
+-- access is locked to each user's own folder, named by their own uid --
+-- the same pattern RLS uses elsewhere in this file, just expressed against
+-- storage.objects' path instead of a user_id column.
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Avatar images are publicly accessible" on storage.objects;
+create policy "Avatar images are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists "Users can upload their own avatar" on storage.objects;
+create policy "Users can upload their own avatar"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Users can update their own avatar" on storage.objects;
+create policy "Users can update their own avatar"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Users can delete their own avatar" on storage.objects;
+create policy "Users can delete their own avatar"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- The app dropped its mood/music-player feature -- this app is a
 -- subscription tracker now. Drops the table for anyone re-running this
 -- script against a database that still has it from before.

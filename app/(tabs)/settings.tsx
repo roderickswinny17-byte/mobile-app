@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import clsx from "clsx";
 import { useSwipeTabNavigation } from "@/hooks/useSwipeTabNavigation";
 import { useProfile } from "@/hooks/useProfile";
+import { useAvatarUpload } from "@/hooks/useAvatarUpload";
+import { Avatar } from "@/components/Avatar";
 import { useLinkedProfiles } from "@/hooks/useLinkedProfiles";
 import { useAccountSwitcher } from "@/hooks/useAccountSwitcher";
 import { useEmailConnection } from "@/hooks/useEmailConnection";
@@ -45,6 +47,7 @@ const Settings = () => {
   const { isDark, setThemePreference, supported: darkModeSupported } = useThemePreference();
   const colors = useThemeColors();
   const { subscriptions: trackedSubs } = useTrackedSubscriptions();
+  const { pickAndUpload, uploading: avatarUploading, error: avatarError } = useAvatarUpload(profile?.id, reload);
 
   // Persistent entry point to Bleed -- unlike the Home banner (which only
   // appears once something's fully "bleeding"), this is always visible so
@@ -181,11 +184,16 @@ const Settings = () => {
 
           <View className="gap-2">
             <View className="flex-row items-center gap-3 rounded-lg border border-outline-variant bg-surface-container p-4">
-              <View className="h-12 w-12 items-center justify-center rounded-full bg-on-background">
-                <Text className="font-display-medium text-lg text-background">
-                  {(profile?.first_name?.charAt(0) ?? "?").toUpperCase()}
-                </Text>
-              </View>
+              <Pressable onPress={pickAndUpload} disabled={avatarUploading} className="relative">
+                <Avatar uri={profile?.avatar_url} initial={(profile?.first_name?.charAt(0) ?? "?").toUpperCase()} size={48} />
+                <View className="absolute -bottom-1 -right-1 h-5 w-5 items-center justify-center rounded-full border-2 border-surface-container bg-primary">
+                  {avatarUploading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="camera" size={11} color="#FFFFFF" />
+                  )}
+                </View>
+              </Pressable>
               <View>
                 <Text className="font-display-medium text-base text-on-surface">
                   {profile?.first_name} {profile?.last_name}
@@ -193,6 +201,7 @@ const Settings = () => {
                 <Text className="font-sans text-xs text-on-surface-variant">{profile?.email}</Text>
               </View>
             </View>
+            {avatarError ? <Text className="font-sans text-xs text-error">{avatarError}</Text> : null}
 
             <TextInput
               placeholder="First name"

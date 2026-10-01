@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { supabase } from "@/lib/supabase";
-import { CATALOG_APPS } from "@/lib/subscriptionCatalog";
+import { resolveBillingUrl } from "@/lib/subscriptionCatalog";
 
 export type DetectedSubscription = {
   id: string;
@@ -141,9 +141,10 @@ export function useDetectedSubscriptions() {
       // Real billing/account URL, same source as the manual-add flow --
       // was missing here entirely before, so Pause/Change Plan/Cancel fell
       // back to a Google search instead of the provider's actual page.
-      const known = CATALOG_APPS.find((a) => a.name.toLowerCase() === primary.service_name.toLowerCase());
-      const billingUrl =
-        known?.billingUrl ?? `https://${primary.service_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+      // resolveBillingUrl also covers services whose real domain/path a
+      // blind name guess gets wrong (Google One -> one.google.com, not
+      // "googleone.com"; ElevenLabs -> elevenlabs.io, not .com).
+      const billingUrl = resolveBillingUrl(primary.service_name);
 
       const { error } = await supabase.from("tracked_subscriptions").insert({
         user_id: session.user.id,

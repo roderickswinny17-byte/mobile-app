@@ -15,6 +15,22 @@ const STROKE = 22;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
+// sub.hex (CATALOG_APPS' row-background pastel, and always the same
+// "#DCD3F3" for anything added via Gmail approval or freeform "Add it
+// anyway" -- see useDetectedSubscriptions/subscriptionCatalog) only has 6
+// distinct values cycled across 14+ catalog apps, so two or more tracked
+// services routinely land on the exact same color here -- unlike
+// SubscriptionRow's chip (where an actual app icon still tells them apart),
+// the donut/legend dot IS the only identifying signal, so a collision
+// actually erases a service from the chart. This palette is only used for
+// that distinguishing purpose, assigned by position in the (already
+// sorted) list rather than trusting the stored, collision-prone hex.
+const DISTINCT_COLORS = [
+  "#F2879A", "#E9C24C", "#9AD6C9", "#BEDDEC", "#D9A8E0", "#F4C9A0",
+  "#CBE9D3", "#A8C8F0", "#F0A8C8", "#C9D9A0", "#DCD3F3", "#E0B8A0",
+  "#F0D28A", "#B8C9E0",
+];
+
 const Insights = () => {
   const panGesture = useSwipeTabNavigation();
   const { subscriptions, loading, error, reload } = useTrackedSubscriptions();
@@ -27,10 +43,10 @@ const Insights = () => {
   const withShare = subscriptions
     .map((sub) => ({
       ...sub,
-      color: sub.hex,
       monthly: convert(monthlyEquivalent(sub), sub.currency, homeCurrency),
     }))
-    .sort((a, b) => b.monthly - a.monthly);
+    .sort((a, b) => b.monthly - a.monthly)
+    .map((sub, index) => ({ ...sub, color: DISTINCT_COLORS[index % DISTINCT_COLORS.length] }));
   const total = withShare.reduce((sum, s) => sum + s.monthly, 0);
 
   // React Compiler (app.json: experiments.reactCompiler) forbids mutating a

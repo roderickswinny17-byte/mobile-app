@@ -9,6 +9,7 @@ import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
 import { useThemeColors } from "@/hooks/useThemeColors";
 import { SubscriptionRow } from "@/components/SubscriptionRow";
 import { AppIcon } from "@/components/AppIcon";
+import { Avatar } from "@/components/Avatar";
 import { BleedingSection } from "@/components/BleedingSection";
 import { RenewalReminderBanner } from "@/components/RenewalReminderBanner";
 import { RenewalBell } from "@/components/RenewalBell";
@@ -55,11 +56,11 @@ const Home = () => {
           <View className="gap-6">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3">
-                <View className="h-11 w-11 items-center justify-center rounded-full bg-on-background">
-                  <Text className="font-display-medium text-lg text-background">
-                    {profileLoading ? "" : initial}
-                  </Text>
-                </View>
+                {profileLoading ? (
+                  <View className="h-11 w-11 rounded-full bg-on-background" />
+                ) : (
+                  <Avatar uri={profile?.avatar_url} initial={initial} size={44} />
+                )}
                 <Text className="font-display text-xl text-on-background">
                   {profile?.first_name ?? ""}
                 </Text>
