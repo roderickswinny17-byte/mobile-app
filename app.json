@@ -29,7 +29,8 @@
       "expo-web-browser",
       "expo-asset",
       "expo-status-bar",
-      "expo-localization"
+      "expo-localization",
+      ["expo-image-picker", { "photosPermission": "Voola needs access to your photos so you can set a profile picture." }]
     ],
     "experiments": { "typedRoutes": true, "reactCompiler": true },
     "extra": {
