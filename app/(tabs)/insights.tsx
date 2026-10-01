@@ -1,10 +1,11 @@
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle } from "react-native-svg";
 import { useSwipeTabNavigation } from "@/hooks/useSwipeTabNavigation";
 import { useTrackedSubscriptions } from "@/hooks/useTrackedSubscriptions";
 import { useProfile } from "@/hooks/useProfile";
 import { useExchangeRates } from "@/hooks/useExchangeRates";
+import { useThemeColors } from "@/hooks/useThemeColors";
 import { AppIcon } from "@/components/AppIcon";
 import { monthlyEquivalent } from "@/lib/subscriptionMath";
 import { convert, formatMoney } from "@/lib/currency";
@@ -16,8 +17,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const Insights = () => {
   const panGesture = useSwipeTabNavigation();
-  const { subscriptions, loading, error } = useTrackedSubscriptions();
+  const { subscriptions, loading, error, reload } = useTrackedSubscriptions();
   const { profile, loading: profileLoading } = useProfile();
+  const colors = useThemeColors();
   useExchangeRates(); // re-renders once live FX rates land
 
   const homeCurrency = profile?.home_currency ?? "USD";
@@ -58,7 +60,10 @@ const Insights = () => {
 
   return (
     <GestureDetector gesture={panGesture}>
-      <ScrollView className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1 bg-background"
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.onBackground} />}
+      >
         <View className="gap-4 px-6 pb-28 pt-16">
           <Text className="font-display text-2xl text-on-background">Insights</Text>
           <Text className="-mt-2 font-sans text-sm text-on-surface-variant">

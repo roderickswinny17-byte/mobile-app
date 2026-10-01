@@ -32,30 +32,17 @@ const TabLayout = () => {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        // Docked, full-width, sticky to the bottom edge -- not a floating
+        // pill. `position: "absolute"` plus side margins/borderRadius/shadow
+        // (the previous styling) is what made it look like an island
+        // hovering over content instead of a fixed bar; this is React
+        // Navigation's default docked behavior, just styled.
         tabBarStyle: {
-          position: "absolute",
-          left: 16,
-          right: 16,
-          // Just the safe-area inset, not +16 on top of it -- that extra
-          // margin was leaving a visible gap of empty background between
-          // the pill and the bottom edge.
-          bottom: Math.max(insets.bottom, 8),
-          height: 48,
-          // React Navigation reserves vertical padding for a label area by
-          // default even with tabBarShowLabel: false, which is what left a
-          // big empty gap under the icons inside the fixed-height pill --
-          // zeroing both out is what actually makes `height: 64` tight.
-          paddingTop: 0,
-          paddingBottom: 0,
-          borderRadius: 999,
-          borderTopWidth: 0,
-          // Fully opaque -- rgba(...,0.78) let screen content show through.
           backgroundColor: "#14172A",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 8,
+          borderTopWidth: 0,
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 4,
         },
         tabBarItemStyle: {
           height: 48,

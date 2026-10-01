@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { GestureDetector } from "react-native-gesture-handler";
@@ -38,6 +38,7 @@ const Subscriptions = () => {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <SubscriptionRow sub={item} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.onBackground} />}
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View className="gap-3">

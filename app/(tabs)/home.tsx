@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { GestureDetector } from "react-native-gesture-handler";
@@ -50,6 +50,7 @@ const Home = () => {
         data={subscriptions}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <SubscriptionRow sub={item} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={colors.onBackground} />}
         ListHeaderComponent={
           <View className="gap-6">
             <View className="flex-row items-center justify-between">
