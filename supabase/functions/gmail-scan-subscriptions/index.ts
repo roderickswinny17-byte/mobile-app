@@ -97,9 +97,10 @@ const LIFECYCLE_RE =
 // which app is actually being paid for. Checked against body content, not
 // the sender -- see the gating-vs-naming distinction where this is used.
 const PRODUCT_NAME_HINTS: { pattern: RegExp; serviceName: string; iconKey: string | null }[] = [
-  { pattern: /\bclaude( pro)?\b|\banthropic,?\s*pbc\b/i, serviceName: "Claude", iconKey: null },
+  { pattern: /\bclaude( pro)?\b|\banthropic,?\s*pbc\b/i, serviceName: "Claude", iconKey: "claude" },
+  { pattern: /\bchatgpt\b|\bopenai\b/i, serviceName: "ChatGPT Plus", iconKey: "openai" },
   { pattern: /\bgoogle one\b|\bgoogle ai pro\b/i, serviceName: "Google One (Gemini)", iconKey: null },
-  { pattern: /\byoutube premium\b/i, serviceName: "YouTube Premium", iconKey: null },
+  { pattern: /\byoutube premium\b/i, serviceName: "YouTube Premium", iconKey: "youtube" },
 ];
 // Google Play's own receipt wording is consistent enough to extract the
 // actual merchant generically ("subscription purchase from BodBot on

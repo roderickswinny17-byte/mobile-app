@@ -79,9 +79,12 @@ const Home = () => {
             <View className="gap-3">
               <View className="flex-row items-center justify-between">
                 <Text className="font-display-medium text-xl text-on-background">Upcoming</Text>
-                <View className="rounded-full border border-outline-variant px-4 py-1.5">
+                <Pressable
+                  onPress={() => router.push("/subscriptions")}
+                  className="rounded-full border border-outline-variant px-4 py-1.5"
+                >
                   <Text className="font-sans-semibold text-xs text-on-surface-variant">View all</Text>
-                </View>
+                </Pressable>
               </View>
               {upcoming.length === 0 ? (
                 <Text className="font-sans text-on-surface-variant">Nothing added yet.</Text>

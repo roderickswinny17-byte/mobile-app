@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import clsx from "clsx";
@@ -23,6 +23,7 @@ export default function AppInfo() {
     trialDays: string;
     hex: string;
     billingUrl: string;
+    planTiers: string;
   }>();
   const { addSubscription } = useTrackedSubscriptions();
   const { profile } = useProfile();
@@ -31,23 +32,48 @@ export default function AppInfo() {
   const basePrice = Number(params.price) || 0;
   const trialDays = Number(params.trialDays) || 0;
   const iconKey = params.icon || null;
+  const tiers: { name: string; verifiedPrices?: Record<string, number> }[] | undefined = params.planTiers
+    ? JSON.parse(params.planTiers)
+    : undefined;
+  // Middle tier by default (same starting point as before), but tracked by
+  // index now instead of being assumed -- this is what the highlight below
+  // actually follows when you tap a different plan.
+  const defaultIndex = tiers ? Math.floor(tiers.length / 2) : 1;
 
   const [currency, setCurrency] = useState(profile?.home_currency ?? "USD");
-  const [customPrice, setCustomPrice] = useState(() =>
-    convert(derivePlans(basePrice)[1].price, "USD", profile?.home_currency ?? "USD").toFixed(2)
-  );
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState(defaultIndex);
+  const [customPrice, setCustomPrice] = useState(() => {
+    const initialCurrency = profile?.home_currency ?? "USD";
+    const plan = derivePlans(basePrice, tiers, initialCurrency)[defaultIndex];
+    return (plan.verified ? plan.price : convert(plan.price, "USD", initialCurrency)).toFixed(2);
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const plans = derivePlans(basePrice).map((plan) => ({
+  // A verified tier price (see Netflix's planTiers) is already exact in
+  // `currency` -- converting it through the exchange-rate table on top
+  // would corrupt a real number into an approximate one. Only an
+  // unverified/illustrative price (always expressed in USD) needs that
+  // conversion at all.
+  const plans = derivePlans(basePrice, tiers, currency).map((plan) => ({
     ...plan,
-    converted: convert(plan.price, "USD", currency),
+    converted: plan.verified ? plan.price : convert(plan.price, "USD", currency),
   }));
 
+  const handleSelectPlan = (index: number) => {
+    setSelectedPlanIndex(index);
+    setCustomPrice(plans[index].converted.toFixed(2));
+  };
+
   const handleCurrencyChange = (next: string) => {
-    const currentVal = parseFloat(customPrice) || 0;
-    setCustomPrice(convert(currentVal, currency, next).toFixed(2));
     setCurrency(next);
+    // Re-derive the SELECTED tier's price under the new currency (verified
+    // if this provider has one for it, illustrative-FX-converted if not),
+    // rather than blindly FX-converting whatever's currently in the price
+    // box -- that would silently turn a real verified number into a wrong
+    // approximation the moment someone switched currency.
+    const newPlan = derivePlans(basePrice, tiers, next)[selectedPlanIndex];
+    setCustomPrice((newPlan.verified ? newPlan.price : convert(newPlan.price, "USD", next)).toFixed(2));
   };
 
   const handleConfirm = async () => {
@@ -130,22 +156,40 @@ export default function AppInfo() {
           {plans.map((plan, i) => (
             <Pressable
               key={plan.name}
-              onPress={() => setCustomPrice(plan.converted.toFixed(2))}
+              onPress={() => handleSelectPlan(i)}
               className={clsx(
                 "flex-row items-center justify-between rounded-lg border px-4 py-3",
-                i === 1 ? "border-primary bg-primary/15" : "border-outline-variant bg-surface-container"
+                i === selectedPlanIndex ? "border-primary bg-primary/15" : "border-outline-variant bg-surface-container"
               )}
             >
-              <Text className="font-sans-medium text-on-surface">{plan.name}</Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="font-sans-medium text-on-surface">{plan.name}</Text>
+                {plan.verified ? (
+                  <View className="flex-row items-center gap-0.5 rounded-full bg-success/15 px-1.5 py-0.5">
+                    <Ionicons name="checkmark-circle" size={10} color="#2f9e44" />
+                    <Text className="font-sans-bold text-[9px] text-success">Verified</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text className="font-display-medium text-sm text-on-surface">
                 {formatMoney(plan.converted, currency)}/mo
               </Text>
             </Pressable>
           ))}
         </View>
-        <Text className="font-sans text-[11px] text-on-surface-variant">
-          Sample plan data for this reference -- not live pricing pulled from the provider.
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <Text className="flex-1 font-sans text-[11px] text-on-surface-variant">
+            {plans[selectedPlanIndex]?.verified
+              ? "Verified from the provider's own pricing page -- not auto-updating, may drift over time."
+              : "Estimated, not pulled from the provider -- use \"Check live price\" to confirm the real number."}
+          </Text>
+          {params.billingUrl ? (
+            <Pressable onPress={() => Linking.openURL(params.billingUrl)} className="flex-row items-center gap-1 pl-2">
+              <Text className="font-sans-semibold text-[11px] text-primary">Check live price</Text>
+              <Ionicons name="open-outline" size={12} color={colors.onBackground} />
+            </Pressable>
+          ) : null}
+        </View>
 
         <Text className="font-display-medium text-lg text-on-background">Your Price</Text>
         <Text className="-mt-2 font-sans text-xs text-on-surface-variant">

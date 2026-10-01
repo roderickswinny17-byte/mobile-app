@@ -13,13 +13,33 @@ export type CatalogApp = {
   // the provider's own account page instead of pretending to control it.
   // Best-effort: providers change these paths occasionally.
   billingUrl: string;
+  // This provider's REAL plan tiers. `verifiedPrices` is optional per tier
+  // and per currency -- only ever filled in from a real, dated source (a
+  // screenshot of the provider's own pricing page, or a live fetch), NEVER
+  // guessed or estimated. A tier/currency combination with no verified
+  // price falls back to derivePlans's illustrative multiplier instead of
+  // pretending to be exact. See derivePlans's own comment for why.
+  planTiers?: { name: string; verifiedPrices?: Record<string, number> }[];
 };
 
 // Suggested matches for the "+" search -- typing anything not found here
 // still works (see the Add Subscription screen's "Add it anyway" option),
 // this is just what comes with a known logo/category pre-filled.
 export const CATALOG_APPS: CatalogApp[] = [
-  { name: "Netflix", category: "Entertainment", icon: "netflix", price: 15.99, cycle: "monthly", trialDays: 0, hex: "#F2879A", billingUrl: "https://www.netflix.com/account" },
+  {
+    name: "Netflix", category: "Entertainment", icon: "netflix", price: 15.99, cycle: "monthly", trialDays: 0,
+    hex: "#F2879A", billingUrl: "https://www.netflix.com/account",
+    // Verified directly from a screenshot of netflix.com's own India
+    // pricing/signup page, provided by the user -- real numbers, not an
+    // estimate. Only INR is verified; every other currency still falls back
+    // to the illustrative multiplier in derivePlans until verified too.
+    planTiers: [
+      { name: "Mobile", verifiedPrices: { INR: 149 } },
+      { name: "Basic", verifiedPrices: { INR: 199 } },
+      { name: "Standard", verifiedPrices: { INR: 499 } },
+      { name: "Premium", verifiedPrices: { INR: 649 } },
+    ],
+  },
   { name: "Spotify", category: "Music", icon: "spotify", price: 11.99, cycle: "monthly", trialDays: 30, hex: "#CBE9D3", billingUrl: "https://www.spotify.com/account/subscription/" },
   { name: "Adobe Creative Cloud", category: "Design", icon: "adobe", price: 77.49, cycle: "monthly", trialDays: 7, hex: "#E9C24C", billingUrl: "https://account.adobe.com/plans" },
   { name: "GitHub Pro", category: "Developer Tools", icon: "github", price: 9.99, cycle: "monthly", trialDays: 0, hex: "#DCD3F3", billingUrl: "https://github.com/settings/billing" },
@@ -67,14 +87,38 @@ function hashPrice(name: string): number {
   return Math.round((3.99 + (hash % 2200) / 100) * 100) / 100;
 }
 
-// Sample plan tiers derived from an app's base price -- illustrative only.
-// No free/legal API exists that returns real, current plan pricing for
-// arbitrary companies, so this is a deliberate, clearly-labeled placeholder;
-// "Your Price" on the App Info screen is what actually gets saved.
-export function derivePlans(basePrice: number) {
-  return [
-    { name: "Basic", price: Math.round(basePrice * 0.6 * 100) / 100 },
-    { name: "Standard", price: Math.round(basePrice * 1.0 * 100) / 100 },
-    { name: "Premium", price: Math.round(basePrice * 1.4 * 100) / 100 },
-  ];
+// Plan tiers for the App Info screen. Where a CatalogApp has a verified
+// real price for the requested currency (see planTiers on Netflix),
+// THAT gets used directly -- exact, not converted, not estimated. For
+// every tier/currency combination that isn't verified, falls back to an
+// illustrative multiplier of the app's single USD reference price. No
+// free/legal API exists that returns real, current plan pricing for
+// arbitrary companies (and even if there were, a provider's real prices
+// often differ by country independently, not just by currency-converting
+// one number) -- so the fallback stays a clearly-separate, honestly
+// unverified estimate rather than pretending to be exact. "Your Price" on
+// the App Info screen is still what actually gets saved either way, and
+// that screen's "Check live price" link is the real way to confirm a
+// tier/currency combination this function doesn't have verified data for.
+const DEFAULT_TIER_NAMES = ["Basic", "Standard", "Premium"];
+const THREE_TIER_MULTIPLIERS = [0.6, 1.0, 1.4];
+
+export function derivePlans(
+  basePrice: number,
+  tiers: { name: string; verifiedPrices?: Record<string, number> }[] = DEFAULT_TIER_NAMES.map((name) => ({ name })),
+  currency: string = "USD"
+) {
+  const n = tiers.length;
+  const multipliers =
+    n === 3
+      ? THREE_TIER_MULTIPLIERS
+      : Array.from({ length: n }, (_, i) => (n <= 1 ? 1 : 0.5 + (i / (n - 1)) * 1.1));
+  return tiers.map((tier, i) => {
+    const verified = tier.verifiedPrices?.[currency];
+    return {
+      name: tier.name,
+      price: verified ?? Math.round(basePrice * multipliers[i] * 100) / 100,
+      verified: verified !== undefined,
+    };
+  });
 }

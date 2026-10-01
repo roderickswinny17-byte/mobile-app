@@ -116,6 +116,19 @@ alter table public.profiles add column if not exists home_currency text not null
 -- picked themselves.
 alter table public.profiles add column if not exists home_currency_auto boolean not null default true;
 
+-- Security-question-based password reset (forgot-password-reset Edge
+-- Function). security_answer_hash is a one-way hash (bcrypt, see
+-- set-security-answer) of the lowercased/trimmed answer -- never the
+-- plaintext answer itself. reset_failed_attempts/reset_locked_until are a
+-- per-account brute-force lockout: these answers (favourite colour,
+-- favourite cricketer) have a realistically small guessable answer space,
+-- so this lockout is load-bearing, not a nice-to-have.
+alter table public.profiles add column if not exists security_question text
+  check (security_question in ('favourite_colour', 'favourite_cricketer'));
+alter table public.profiles add column if not exists security_answer_hash text;
+alter table public.profiles add column if not exists reset_failed_attempts int not null default 0;
+alter table public.profiles add column if not exists reset_locked_until timestamptz;
+
 -- The app dropped its mood/music-player feature -- this app is a
 -- subscription tracker now. Drops the table for anyone re-running this
 -- script against a database that still has it from before.

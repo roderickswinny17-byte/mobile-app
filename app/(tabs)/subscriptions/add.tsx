@@ -33,6 +33,10 @@ export default function AddSubscription() {
         trialDays: String(app.trialDays),
         hex: app.hex,
         billingUrl: app.billingUrl,
+        // Route params are strings only -- JSON-encoded here, parsed back
+        // apart on the other end. "" (not omitted) when absent, so
+        // app-info.tsx can tell "no custom tiers" apart from real data.
+        planTiers: app.planTiers ? JSON.stringify(app.planTiers) : "",
       },
     });
   };
