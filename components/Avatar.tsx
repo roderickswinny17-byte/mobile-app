@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import clsx from "clsx";
@@ -10,10 +11,15 @@ type AvatarProps = {
 };
 
 export function Avatar({ uri, initial, size, className }: AvatarProps) {
-  if (uri) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const showPhoto = !!uri && uri !== failedUri;
+
+  if (showPhoto) {
     return (
       <Image
         source={{ uri }}
+        contentFit="cover"
+        onError={() => setFailedUri(uri)}
         style={{ width: size, height: size, borderRadius: size / 2 }}
         className={className}
       />

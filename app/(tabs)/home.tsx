@@ -18,7 +18,7 @@ import { computeBleedScore } from "@/lib/bleedScore";
 
 const Home = () => {
   const panGesture = useSwipeTabNavigation();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, reload: reloadProfile } = useProfile();
   const { subscriptions, loading, error, reload } = useTrackedSubscriptions();
   const colors = useThemeColors();
 
@@ -37,7 +37,8 @@ const Home = () => {
   useFocusEffect(
     useCallback(() => {
       reload();
-    }, [reload])
+      reloadProfile();
+    }, [reload, reloadProfile])
   );
 
   const upcoming = subscriptions.slice(0, 3);
@@ -56,11 +57,7 @@ const Home = () => {
           <View className="gap-6">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3">
-                {profileLoading ? (
-                  <View className="h-11 w-11 rounded-full bg-on-background" />
-                ) : (
-                  <Avatar uri={profile?.avatar_url} initial={initial} size={44} />
-                )}
+                <Avatar uri={profile?.avatar_url} initial={initial} size={44} />
                 <Text className="font-display text-xl text-on-background">
                   {profile?.first_name ?? ""}
                 </Text>
