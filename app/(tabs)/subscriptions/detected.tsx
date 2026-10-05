@@ -65,7 +65,7 @@ export default function DetectedSubscriptions() {
       <View className="gap-4 px-6 pb-16 pt-16">
         <View className="flex-row items-center gap-3">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.replace("/subscriptions")}
             className="h-9 w-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container"
           >
             <Ionicons name="arrow-back" size={20} color={colors.onSurfaceVariant} />

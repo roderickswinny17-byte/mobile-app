@@ -49,6 +49,7 @@ const Settings = () => {
   const colors = useThemeColors();
   const { subscriptions: trackedSubs } = useTrackedSubscriptions();
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
   const {
     pickAndUpload,
     uploading: avatarUploading,
@@ -350,6 +351,7 @@ const Settings = () => {
           {emailConnection.error ? (
             <Text className="font-sans text-xs text-error">{emailConnection.error}</Text>
           ) : null}
+          {scanMessage ? <Text className="font-sans text-xs text-on-surface-variant">{scanMessage}</Text> : null}
           {emailConnection.loading ? (
             <ActivityIndicator />
           ) : emailConnection.connected ? (
@@ -367,8 +369,15 @@ const Settings = () => {
               <View className="flex-row items-center gap-2">
                 <Pressable
                   onPress={async () => {
-                    await emailConnection.scanNow();
-                    router.push("/subscriptions/detected");
+                    setScanMessage(null);
+                    const result = await emailConnection.scanNow();
+                    if (!result) return;
+                    setScanMessage(
+                      result.detected > 0
+                        ? `Scan complete. ${result.detected} possible subscription${result.detected === 1 ? "" : "s"} found. You can scan again in 10 minutes.`
+                        : "Scan complete. Nothing new found. You can scan again in 10 minutes."
+                    );
+                    if (result.detected > 0) router.push("/subscriptions/detected");
                   }}
                   disabled={emailConnection.scanning}
                   className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3"
