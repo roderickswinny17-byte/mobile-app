@@ -78,7 +78,7 @@ const SubscriptionDetails = () => {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-background px-6">
         <Text className="font-sans text-on-surface-variant">Subscription not found.</Text>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.replace("/home")}>
           <Text className="font-sans-medium text-primary">Go Back</Text>
         </Pressable>
       </View>
@@ -98,7 +98,7 @@ const SubscriptionDetails = () => {
       <View className="gap-4 px-6 pb-16 pt-16">
         <View className="flex-row items-center gap-3">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.replace("/home")}
             className="h-9 w-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container"
           >
             <Ionicons name="arrow-back" size={20} color={colors.onSurfaceVariant} />
