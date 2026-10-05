@@ -83,6 +83,17 @@ Deno.serve(async (req) => {
       return redirectToApp(false, "token_exchange_failed");
     }
 
+    // Google's granular consent lets the user untick individual permissions
+    // on the consent screen -- the exchange still succeeds, just with a
+    // narrower `scope`. Without gmail.readonly every scan would 403, so
+    // refuse the connection here instead of storing a useless one.
+    const grantedScopes = String(tokenData.scope ?? "").split(" ");
+    if (!grantedScopes.includes("https://www.googleapis.com/auth/gmail.readonly")) {
+      console.error("gmail-oauth-callback: Gmail permission not granted", { grantedScopes });
+      await supabaseAdmin.from("oauth_states").delete().eq("state", state);
+      return redirectToApp(false, "gmail_permission_not_granted");
+    }
+
     // --- ENHANCEMENT 1: Get user email for UI ---
     let userEmail: string | null = null;
     try {

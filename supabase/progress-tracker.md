@@ -210,6 +210,15 @@ _Last updated: 2026-09-28, from `git log` (14 commits, `672ce30` → `38e1aa3`).
 - Fails open: if `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` aren't set, or Upstash is unreachable, scanning proceeds as before. The database stays on Supabase.
 - Not yet done: scan progress storage and subscription-summary caching.
 
+### Scan Now "non-2xx" failure (nethaganiseleste@gmail.com)
+
+- Reported: Scan Now showed only "Edge Function returned a non-2xx status code" for a freshly connected account (connected, valid token, 0 detected, `last_synced_at` null). The hook only read `body.error`, but Supabase platform failures (worker limit, boot error, timeout) reply with `message`/`code`, so the real reason was hidden. The worker-limit theory was wrong -- logs showed Gmail returning 403 `insufficientPermissions`: the user unticked the Gmail permission on Google's granular consent screen, and `gmail-oauth-callback` never checked the granted scope, so it stored a connection that could only ever fail (the batching below is still a valid hardening).
+- `hooks/useEmailConnection.ts`: `scanNow` now reads `error` / `message` / `msg`, logs status + body via `console.warn`, and shows a friendly retry message for 5xx with no readable body.
+- `gmail-scan-subscriptions`: messages are fetched in parallel batches of 10 instead of one by one; existing candidates are loaded with one `.in()` query (already approved/dismissed messages are no longer re-fetched from Gmail); inserts are one bulk upsert per batch (`ignoreDuplicates`); a 90s time budget returns a partial result (`partial: true`) instead of being killed; `last_synced_at` still set on partial runs.
+- The Upstash cooldown slot is now released (`DEL`) on any failure (no connection, Gmail list failure, unhandled exception), so a failed scan no longer locks the user out for 10 minutes.
+- Deployed as v28 (`--no-verify-jwt`, unchanged). Not yet tested against a live inbox; the client-side hook change only ships with the next app build/OTA update.
+- Real fix: `gmail-oauth-callback` now rejects a token whose `scope` lacks `gmail.readonly` (redirects with `gmail_permission_not_granted`, nothing stored); `gmail-scan-subscriptions` maps a Gmail 403 to `{ error, code: "reconnect_required" }` with a Disconnect-and-reconnect message and releases the cooldown; the hook shows a friendly message for the new callback error. Existing bad connections (e.g. nethaganiseleste@gmail.com) must Disconnect and reconnect. Not yet deployed.
+
 ## Open Questions
 
 - **Native builds untested end-to-end.** No Android/iOS device or emulator has been available in the dev environment since the SDK 57 upgrade (`9df12de`) — only web/Playwright passes have been verified. The original motivating issue (Expo Go SDK mismatch) still needs confirming by opening the project in Expo Go on a real device.

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, BackHandler, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import clsx from "clsx";
@@ -31,6 +31,18 @@ const SubscriptionDetails = () => {
         supabase.from("tracked_subscriptions").update({ last_viewed_at: new Date().toISOString() }).eq("id", id);
       }
     }, [id])
+  );
+
+  // Android system back (nav bar / gesture) must behave like the header back
+  // icon: return to the Home list instead of popping to another screen.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        router.replace("/home");
+        return true;
+      });
+      return () => sub.remove();
+    }, [])
   );
 
   // Pause/Change Plan/Cancel all open the provider's own billing page --

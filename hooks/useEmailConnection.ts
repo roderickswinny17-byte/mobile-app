@@ -55,7 +55,12 @@ export function useEmailConnection() {
       const redirectUrl = new URL(result.url);
       const success = redirectUrl.searchParams.get("success") === "true";
       if (!success) {
-        setError(redirectUrl.searchParams.get("error") ?? "Gmail connection failed.");
+        const reason = redirectUrl.searchParams.get("error");
+        setError(
+          reason === "gmail_permission_not_granted"
+            ? "Gmail access wasn't granted. Connect again and tick the Gmail permission on Google's screen."
+            : reason ?? "Gmail connection failed."
+        );
         return;
       }
 
@@ -76,9 +81,24 @@ export function useEmailConnection() {
     try {
       const { data, error: scanError } = await supabase.functions.invoke("gmail-scan-subscriptions");
       if (scanError) {
-        const body =
-          scanError instanceof FunctionsHttpError ? await scanError.context.json().catch(() => null) : null;
-        setError(body?.error ?? scanError.message ?? "Scan failed.");
+        let status: number | null = null;
+        let body: { error?: string; message?: string; msg?: string; code?: string } | null = null;
+        if (scanError instanceof FunctionsHttpError) {
+          status = scanError.context.status;
+          body = await scanError.context.json().catch(() => null);
+        }
+        // Our own function replies { error }; Supabase platform failures
+        // (worker limit, boot error, timeout) reply { message } / { code }
+        // instead, which used to fall through to the opaque "non-2xx" text.
+        console.warn("gmail scan failed", { status, body });
+        const reason = body?.error ?? body?.message ?? body?.msg;
+        if (reason) {
+          setError(reason);
+        } else if (status !== null && status >= 500) {
+          setError("The scan took too long or hit a server problem. Please try again in a moment.");
+        } else {
+          setError(scanError.message ?? "Scan failed.");
+        }
         return null;
       }
       await load();

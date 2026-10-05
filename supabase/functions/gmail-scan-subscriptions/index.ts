@@ -309,29 +309,28 @@ const corsHeaders = {
 const SCAN_COOLDOWN_SECONDS = 600;
 
 // Upstash Redis over its REST API (plain fetch, no npm import -- npm imports
-// have failed to boot in this edge runtime before). Returns 0 when the scan
-// may proceed, or the seconds left on the cooldown. Fails open: if Upstash
+// have failed to boot in this edge runtime before). Fails open: if Upstash
 // isn't configured or is unreachable, scanning is never blocked by it.
-async function claimScanSlot(userId: string): Promise<number> {
+async function upstash(args: (string | number)[]) {
   const url = Deno.env.get("UPSTASH_REDIS_REST_URL");
   const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
-  if (!url || !token) return 0;
+  if (!url || !token) return undefined;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new Error(`Upstash ${res.status}`);
+  return (await res.json()).result;
+}
 
+// Returns 0 when the scan may proceed, or the seconds left on the cooldown.
+async function claimScanSlot(userId: string): Promise<number> {
   const key = `scan:cooldown:${userId}`;
-  const command = async (args: (string | number)[]) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(args),
-    });
-    if (!res.ok) throw new Error(`Upstash ${res.status}`);
-    return (await res.json()).result;
-  };
-
   try {
-    const claimed = await command(["SET", key, "1", "NX", "EX", SCAN_COOLDOWN_SECONDS]);
-    if (claimed === "OK") return 0;
-    const ttl = Number(await command(["TTL", key]));
+    const claimed = await upstash(["SET", key, "1", "NX", "EX", SCAN_COOLDOWN_SECONDS]);
+    if (claimed === undefined || claimed === "OK") return 0;
+    const ttl = Number(await upstash(["TTL", key]));
     return ttl > 0 ? ttl : 0;
   } catch (err) {
     console.error("gmail-scan-subscriptions: cooldown check failed, allowing scan", err);
@@ -339,12 +338,34 @@ async function claimScanSlot(userId: string): Promise<number> {
   }
 }
 
+// A scan that failed before finishing shouldn't lock the user out for the
+// full cooldown -- give the slot back so they can retry straight away.
+async function releaseScanSlot(userId: string) {
+  try {
+    await upstash(["DEL", `scan:cooldown:${userId}`]);
+  } catch (err) {
+    console.error("gmail-scan-subscriptions: cooldown release failed", err);
+  }
+}
+
+// Messages are fetched/parsed this many at a time. Sequential fetching of
+// up to MAX_MESSAGES full-format messages (plus two DB round trips each) is
+// what blew the edge worker's time/CPU limit on purchase-heavy inboxes.
+const BATCH_SIZE = 10;
+// Stop starting new batches after this long and return what we have, well
+// inside the platform's hard wall-clock limit, rather than being killed
+// mid-run and returning nothing at all.
+const TIME_BUDGET_MS = 90_000;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   console.log("gmail-scan-subscriptions: request received");
+
+  // Set once a cooldown slot is claimed, so any failure below can hand it back.
+  let claimedUserId: string | null = null;
 
   try {
     const supabaseUser = createClient(
@@ -372,6 +393,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    claimedUserId = user.id;
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -385,6 +408,7 @@ Deno.serve(async (req) => {
 
     if (connError || !connection) {
       console.error("gmail-scan-subscriptions: no Gmail connection", connError);
+      await releaseScanSlot(user.id);
       return new Response(JSON.stringify({ error: "Gmail is not connected" }), { status: 400, headers: corsHeaders });
     }
 
@@ -452,6 +476,19 @@ Deno.serve(async (req) => {
       const listData = await listRes.json();
       if (!listRes.ok) {
         console.error("gmail-scan-subscriptions: Gmail list failed", listData);
+        await releaseScanSlot(user.id);
+        // 403 insufficientPermissions: the connection exists but was granted
+        // without Gmail access (e.g. connected before the callback checked
+        // scopes). Only fixable by disconnecting and reconnecting.
+        if (listRes.status === 403) {
+          return new Response(
+            JSON.stringify({
+              error: "Gmail access wasn't granted. Tap Disconnect, then connect again and tick the Gmail permission.",
+              code: "reconnect_required",
+            }),
+            { status: 403, headers: corsHeaders }
+          );
+        }
         return new Response(JSON.stringify({ error: "Gmail search failed", details: listData }), { status: 502, headers: corsHeaders });
       }
       messageIds.push(...(listData.messages ?? []).map((m: { id: string }) => m.id));
@@ -460,8 +497,35 @@ Deno.serve(async (req) => {
 
     console.log("gmail-scan-subscriptions: found", messageIds.length, "candidate messages");
 
-    let detectedCount = 0;
-    for (const id of messageIds) {
+    // One query for everything already seen, instead of a lookup per message.
+    // Messages the user already approved/dismissed are never touched, so they
+    // are not even fetched from Gmail again.
+    const existingByMessageId = new Map<string, { id: string; status: string }>();
+    for (let i = 0; i < messageIds.length; i += 100) {
+      const { data: existingRows, error: existingError } = await supabaseAdmin
+        .from("detected_subscriptions")
+        .select("id, status, gmail_message_id")
+        .eq("user_id", user.id)
+        .in("gmail_message_id", messageIds.slice(i, i + 100));
+      if (existingError) throw new Error(`Could not load existing candidates: ${existingError.message}`);
+      for (const row of existingRows ?? []) {
+        existingByMessageId.set(row.gmail_message_id, { id: row.id, status: row.status });
+      }
+    }
+    const idsToFetch = messageIds.filter((id) => {
+      const existing = existingByMessageId.get(id);
+      return !existing || existing.status === "pending";
+    });
+
+    type Candidate = {
+      id: string;
+      serviceName: string;
+      iconKey: string | null;
+      guessFields: Record<string, unknown>;
+    };
+    // Fetches + parses one message; returns null when it isn't a candidate.
+    // No DB access here -- writes are batched by the caller.
+    const evaluateMessage = async (id: string): Promise<Candidate | null> => {
       // format=full (not metadata) -- the amount is very often outside the
       // ~200-char snippet Gmail returns for metadata/list views, so
       // guessAmount needs the actual body text to find it reliably.
@@ -469,7 +533,7 @@ Deno.serve(async (req) => {
       msgUrl.searchParams.set("format", "full");
 
       const msgRes = await fetch(msgUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!msgRes.ok) continue;
+      if (!msgRes.ok) return null;
       const msg = await msgRes.json();
 
       const headers: { name: string; value: string }[] = msg.payload?.headers ?? [];
@@ -523,7 +587,7 @@ Deno.serve(async (req) => {
       const isKnownServiceLifecycleSignal = !!known && LIFECYCLE_RE.test(combinedText);
       if (!isReceipt && !isKnownServiceLifecycleSignal) {
         console.log("gmail-scan-subscriptions: skipping non-receipt email from", serviceName);
-        continue;
+        return null;
       }
       // Everything NOT on the curated list still needs actual
       // subscription/recurring wording on top of receipt evidence, or Uber
@@ -531,7 +595,7 @@ Deno.serve(async (req) => {
       // flood in too (every one of them is receipt-shaped).
       if (!known && !hasSubscriptionEvidence(combinedText)) {
         console.log("gmail-scan-subscriptions: skipping one-off receipt (no subscription wording) from", serviceName);
-        continue;
+        return null;
       }
       // A price/date found in a non-receipt email (only in the queue at all
       // via the known-sender LIFECYCLE_RE fallback) is not trustworthy --
@@ -551,41 +615,70 @@ Deno.serve(async (req) => {
         source_snippet: snippet.slice(0, 300),
         evidence_tier: classifyEvidenceTier(combinedText, isReceipt, guessedMoney != null, chargeDate != null),
       };
+      return { id, serviceName, iconKey, guessFields };
+    };
 
-      // A plain upsert would either skip every rescan of an already-seen
-      // message (ignoreDuplicates: true -- a better decoder could never
-      // reach a message already sitting pending with a stale null guess)
-      // or blindly overwrite status back to "pending" on every rescan
-      // (ignoreDuplicates: false -- would resurrect messages the user
-      // already approved/dismissed). So: look the row up first, and only
-      // touch it if it doesn't exist yet or is still awaiting review.
-      const { data: existingCandidate } = await supabaseAdmin
-        .from("detected_subscriptions")
-        .select("id, status")
-        .eq("user_id", user.id)
-        .eq("gmail_message_id", id)
-        .maybeSingle();
-
-      if (!existingCandidate) {
-        const { error: insertError } = await supabaseAdmin.from("detected_subscriptions").insert({
-          user_id: user.id,
-          service_name: serviceName,
-          icon_key: iconKey,
-          gmail_message_id: id,
-          status: "pending",
-          ...guessFields,
-        });
-        if (!insertError) detectedCount++;
-        else console.warn("insert failed for", id, insertError.message);
-      } else if (existingCandidate.status === "pending") {
-        const { error: updateError } = await supabaseAdmin
-          .from("detected_subscriptions")
-          .update(guessFields)
-          .eq("id", existingCandidate.id);
-        if (!updateError) detectedCount++;
-        else console.warn("guess refresh failed for", id, updateError.message);
+    let detectedCount = 0;
+    let processed = 0;
+    let partial = false;
+    const startedAt = Date.now();
+    for (let i = 0; i < idsToFetch.length; i += BATCH_SIZE) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        partial = true;
+        console.warn("gmail-scan-subscriptions: time budget reached, returning partial result", { processed });
+        break;
       }
-      // status is "approved" or "dismissed" -- already resolved, leave alone.
+      const batch = idsToFetch.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((id) =>
+          evaluateMessage(id).catch((err) => {
+            console.warn("gmail-scan-subscriptions: message failed", id, err instanceof Error ? err.message : err);
+            return null;
+          })
+        )
+      );
+      processed += batch.length;
+
+      const toInsert: Record<string, unknown>[] = [];
+      const toRefresh: { rowId: string; guessFields: Record<string, unknown> }[] = [];
+      for (const c of results) {
+        if (!c) continue;
+        const existing = existingByMessageId.get(c.id);
+        if (!existing) {
+          toInsert.push({
+            user_id: user.id,
+            service_name: c.serviceName,
+            icon_key: c.iconKey,
+            gmail_message_id: c.id,
+            status: "pending",
+            ...c.guessFields,
+          });
+        } else {
+          // Still pending -- refresh its guess fields (a better decoder can
+          // now fill in what an older scan left null) without touching status.
+          toRefresh.push({ rowId: existing.id, guessFields: c.guessFields });
+        }
+      }
+
+      if (toInsert.length > 0) {
+        // ignoreDuplicates guards against a concurrent scan inserting the same message.
+        const { data: inserted, error: insertError } = await supabaseAdmin
+          .from("detected_subscriptions")
+          .upsert(toInsert, { onConflict: "user_id,gmail_message_id", ignoreDuplicates: true })
+          .select("id");
+        if (insertError) console.warn("gmail-scan-subscriptions: batch insert failed", insertError.message);
+        else detectedCount += inserted?.length ?? 0;
+      }
+      await Promise.all(
+        toRefresh.map(async ({ rowId, guessFields }) => {
+          const { error: updateError } = await supabaseAdmin
+            .from("detected_subscriptions")
+            .update(guessFields)
+            .eq("id", rowId);
+          if (!updateError) detectedCount++;
+          else console.warn("gmail-scan-subscriptions: guess refresh failed", rowId, updateError.message);
+        })
+      );
     }
 
     await supabaseAdmin
@@ -594,11 +687,12 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id);
 
     console.log("gmail-scan-subscriptions: done", { detectedCount });
-    return new Response(JSON.stringify({ scanned: messageIds.length, detected: detectedCount }), {
+    return new Response(JSON.stringify({ scanned: messageIds.length, detected: detectedCount, partial }), {
       headers: corsHeaders,
     });
   } catch (err) {
     console.error("gmail-scan-subscriptions: unhandled exception", err);
+    if (claimedUserId) await releaseScanSlot(claimedUserId);
     const message = err instanceof Error ? err.message : "Unexpected error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
