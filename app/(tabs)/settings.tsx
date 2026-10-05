@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View 
 import { router } from "expo-router";
 import { GestureDetector } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import clsx from "clsx";
 import { useSwipeTabNavigation } from "@/hooks/useSwipeTabNavigation";
 import { useProfile } from "@/hooks/useProfile";
@@ -47,7 +48,15 @@ const Settings = () => {
   const { isDark, setThemePreference, supported: darkModeSupported } = useThemePreference();
   const colors = useThemeColors();
   const { subscriptions: trackedSubs } = useTrackedSubscriptions();
-  const { pickAndUpload, uploading: avatarUploading, error: avatarError } = useAvatarUpload(profile?.id, reload);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const {
+    pickAndUpload,
+    uploading: avatarUploading,
+    error: avatarError,
+  } = useAvatarUpload(profile?.id, () => {
+    reload();
+    setAvatarModalOpen(false);
+  });
 
   // Persistent entry point to Bleed -- unlike the Home banner (which only
   // appears once something's fully "bleeding"), this is always visible so
@@ -184,7 +193,7 @@ const Settings = () => {
 
           <View className="gap-2">
             <View className="flex-row items-center gap-3 rounded-lg border border-outline-variant bg-surface-container p-4">
-              <Pressable onPress={pickAndUpload} disabled={avatarUploading} className="relative">
+              <Pressable onPress={() => setAvatarModalOpen(true)} className="relative">
                 <Avatar uri={profile?.avatar_url} initial={(profile?.first_name?.charAt(0) ?? "?").toUpperCase()} size={48} />
                 <View className="absolute -bottom-1 -right-1 h-5 w-5 items-center justify-center rounded-full border-2 border-surface-container bg-primary">
                   {avatarUploading ? (
@@ -568,6 +577,55 @@ const Settings = () => {
               className="mt-2 items-center rounded-lg bg-primary px-6 py-4"
             >
               <Text className="font-display-medium text-on-primary">Sign Out</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={avatarModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvatarModalOpen(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/60 px-6"
+          onPress={() => setAvatarModalOpen(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} className="w-full gap-4 rounded-2xl bg-background p-5">
+            <View className="aspect-square w-full overflow-hidden rounded-xl bg-surface-container">
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+              ) : (
+                <View className="h-full w-full items-center justify-center">
+                  <Text className="font-display-medium text-6xl text-on-surface-variant">
+                    {(profile?.first_name?.charAt(0) ?? "?").toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {avatarError ? <Text className="font-sans text-xs text-error">{avatarError}</Text> : null}
+
+            <Pressable
+              onPress={pickAndUpload}
+              disabled={avatarUploading}
+              className="flex-row items-center justify-center gap-2 rounded-lg bg-primary px-6 py-4"
+            >
+              {avatarUploading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+                  <Text className="font-display-medium text-on-primary">
+                    {profile?.avatar_url ? "Update picture" : "Upload picture"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable onPress={() => setAvatarModalOpen(false)} className="items-center py-2">
+              <Text className="font-sans-semibold text-sm text-on-surface-variant">Close</Text>
             </Pressable>
           </Pressable>
         </Pressable>

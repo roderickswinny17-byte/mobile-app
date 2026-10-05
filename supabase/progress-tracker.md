@@ -196,6 +196,10 @@ _Last updated: 2026-09-28, from `git log` (14 commits, `672ce30` → `38e1aa3`).
 - Replaced the app icon with a bell-with-checkmark mark on a rounded coral tile (app `--color-primary` `#D9785C`), with a dark navy bell (`#14172A`) and a coral checkmark cut-out. Regenerated `icon.png`, the Android adaptive foreground/background/monochrome icons, `favicon.png`, and `splash-icon.png` at their existing dimensions. The artwork sits inside Android's 66% safe zone so it isn't clipped by launcher masks.
 - Display name changed from "mobile-app" to "Subscription Tracker" in `app.json` (the `slug` was already `subscription-tracker`, so the install name and URL scheme are unchanged).
 
+### Profile picture preview modal
+
+- Tapping the avatar on the Profile screen now opens a preview: a square picture if one is set, otherwise the initial in a square. The button below reads "Upload picture" when there's no photo and "Update picture" when there is one. The modal closes after a successful upload.
+
 ## Open Questions
 
 - **Native builds untested end-to-end.** No Android/iOS device or emulator has been available in the dev environment since the SDK 57 upgrade (`9df12de`) — only web/Playwright passes have been verified. The original motivating issue (Expo Go SDK mismatch) still needs confirming by opening the project in Expo Go on a real device.
