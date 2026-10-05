@@ -306,6 +306,39 @@ const corsHeaders = {
   "Content-Type": "application/json",
 }
 
+const SCAN_COOLDOWN_SECONDS = 600;
+
+// Upstash Redis over its REST API (plain fetch, no npm import -- npm imports
+// have failed to boot in this edge runtime before). Returns 0 when the scan
+// may proceed, or the seconds left on the cooldown. Fails open: if Upstash
+// isn't configured or is unreachable, scanning is never blocked by it.
+async function claimScanSlot(userId: string): Promise<number> {
+  const url = Deno.env.get("UPSTASH_REDIS_REST_URL");
+  const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+  if (!url || !token) return 0;
+
+  const key = `scan:cooldown:${userId}`;
+  const command = async (args: (string | number)[]) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    if (!res.ok) throw new Error(`Upstash ${res.status}`);
+    return (await res.json()).result;
+  };
+
+  try {
+    const claimed = await command(["SET", key, "1", "NX", "EX", SCAN_COOLDOWN_SECONDS]);
+    if (claimed === "OK") return 0;
+    const ttl = Number(await command(["TTL", key]));
+    return ttl > 0 ? ttl : 0;
+  } catch (err) {
+    console.error("gmail-scan-subscriptions: cooldown check failed, allowing scan", err);
+    return 0;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -329,6 +362,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: corsHeaders });
     }
     console.log("gmail-scan-subscriptions: authenticated as", user.id);
+
+    const waitSeconds = await claimScanSlot(user.id);
+    if (waitSeconds > 0) {
+      const minutes = Math.ceil(waitSeconds / 60);
+      return new Response(
+        JSON.stringify({ error: `You can scan again in about ${minutes} minute${minutes === 1 ? "" : "s"}.` }),
+        { status: 429, headers: { ...corsHeaders, "Retry-After": String(waitSeconds) } }
+      );
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,

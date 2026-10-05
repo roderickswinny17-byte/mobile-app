@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 export type EmailConnectionStatus = {
@@ -75,7 +76,9 @@ export function useEmailConnection() {
     try {
       const { data, error: scanError } = await supabase.functions.invoke("gmail-scan-subscriptions");
       if (scanError) {
-        setError(scanError.message ?? "Scan failed.");
+        const body =
+          scanError instanceof FunctionsHttpError ? await scanError.context.json().catch(() => null) : null;
+        setError(body?.error ?? scanError.message ?? "Scan failed.");
         return null;
       }
       await load();

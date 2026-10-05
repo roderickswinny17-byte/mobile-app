@@ -200,6 +200,16 @@ _Last updated: 2026-09-28, from `git log` (14 commits, `672ce30` → `38e1aa3`).
 
 - Tapping the avatar on the Profile screen now opens a preview: a square picture if one is set, otherwise the initial in a square. The button below reads "Upload picture" when there's no photo and "Update picture" when there is one. The modal closes after a successful upload.
 
+## Recent Changes
+
+- Subscription details (`app/(tabs)/subscriptions/[id].tsx`): Android system back (nav bar/gesture) now returns to Home like the header back icon, via a `BackHandler` listener registered in `useFocusEffect`. Not yet verified on a real device.
+
+### Upstash Redis for scan cooldown
+
+- Added a 10-minute cooldown on Gmail scans using Upstash Redis over its REST API. `gmail-scan-subscriptions` sets `scan:cooldown:<user id>` with `SET NX EX`, and returns 429 with a wait message if a scan ran recently. The hook shows that message instead of a generic error.
+- Fails open: if `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` aren't set, or Upstash is unreachable, scanning proceeds as before. The database stays on Supabase.
+- Not yet done: scan progress storage and subscription-summary caching.
+
 ## Open Questions
 
 - **Native builds untested end-to-end.** No Android/iOS device or emulator has been available in the dev environment since the SDK 57 upgrade (`9df12de`) — only web/Playwright passes have been verified. The original motivating issue (Expo Go SDK mismatch) still needs confirming by opening the project in Expo Go on a real device.
