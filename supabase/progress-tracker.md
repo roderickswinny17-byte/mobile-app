@@ -194,7 +194,7 @@ _Last updated: 2026-09-28, from `git log` (14 commits, `672ce30` → `38e1aa3`).
 ### App icon redesign
 
 - Replaced the app icon with a bell-with-checkmark mark on a rounded coral tile (app `--color-primary` `#D9785C`), with a dark navy bell (`#14172A`) and a coral checkmark cut-out. Regenerated `icon.png`, the Android adaptive foreground/background/monochrome icons, `favicon.png`, and `splash-icon.png` at their existing dimensions. The artwork sits inside Android's 66% safe zone so it isn't clipped by launcher masks.
-- The app's display name is still "mobile-app" in `app.json`. The reference mock shows "SubTrack"; renaming wasn't part of this change.
+- Display name changed from "mobile-app" to "Subscription Tracker" in `app.json` (the `slug` was already `subscription-tracker`, so the install name and URL scheme are unchanged).
 
 ## Open Questions
 
